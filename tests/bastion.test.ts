@@ -8,6 +8,7 @@ import { runAudit } from '../src/commands/audit.js';
 import { runGate } from '../src/commands/gate.js';
 import { runInit } from '../src/commands/init.js';
 import { runLock } from '../src/commands/lock.js';
+import { runMutate } from '../src/commands/mutate.js';
 
 const tempDirs: string[] = [];
 
@@ -141,5 +142,59 @@ describe('bastion-gate v0.1 e2e', () => {
       const cfg = JSON.parse(fs.readFileSync(path.join(repo, '.bastion', 'config.json'), 'utf8'));
       assert.equal(cfg.testCommand, expectedCmd, `Expected ${markerFile} -> ${expectedCmd}`);
     }
+  });
+
+  it('lock ignores gitignored build/output directories like dist-test', () => {
+    const repo = createTempGitRepo();
+    runInit({ cwd: repo, testCommand: 'node --test tests/app.test.mjs', baseBranch: 'main' });
+    writeRepoFile(repo, '.gitignore', 'dist-test/\n');
+    writeRepoFile(repo, 'dist-test/tests/app.test.mjs', 'test("ignored", () => {});\n');
+    writeRepoFile(
+      repo,
+      'tests/app.test.mjs',
+      `import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('real failing test', () => { assert.equal(1, 2); });\n`
+    );
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'test: add gitignore and failing test'], repo);
+
+    assert.equal(runLock({ cwd: repo }), 0);
+    const lockJson = JSON.parse(fs.readFileSync(path.join(repo, '.bastion', 'lock.json'), 'utf8'));
+    const lockedPaths = lockJson.lockedFiles.map((f: { path: string }) => f.path);
+    assert.ok(lockedPaths.includes('tests/app.test.mjs'));
+    assert.equal(lockedPaths.includes('dist-test/tests/app.test.mjs'), false);
+  });
+
+  it('mutate detects killed vs survived mutations and always restores source files', () => {
+    const repo = createTempGitRepo();
+    runInit({ cwd: repo, testCommand: 'node --test tests/guard.test.mjs', baseBranch: 'main' });
+    writeRepoFile(
+      repo,
+      'src/guard.mjs',
+      'export function isAdult(age) {\n  return age >= 18;\n}\n'
+    );
+    writeRepoFile(
+      repo,
+      'tests/guard.test.mjs',
+      `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { isAdult } from '../src/guard.mjs';\ntest('adult check', () => { assert.equal(isAdult(20), true); });\n`
+    );
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'feat: initial guard'], repo);
+
+    // Run mutation spot-check on src/guard.mjs (>= -> < should fail test -> killed!)
+    const originalSrc = fs.readFileSync(path.join(repo, 'src/guard.mjs'), 'utf8');
+    const killedCode = runMutate({ cwd: repo, files: ['src/guard.mjs'], maxMutations: 3 });
+    assert.equal(killedCode, 0);
+    assert.equal(fs.readFileSync(path.join(repo, 'src/guard.mjs'), 'utf8'), originalSrc);
+
+    // Add an untested branch: a survived mutation must make mutate return 1 and still restore file
+    writeRepoFile(
+      repo,
+      'src/guard.mjs',
+      'export function isAdult(age) {\n  return age >= 18;\n}\nexport function unusedCheck(x) {\n  return x === 42;\n}\n'
+    );
+    const originalWithUnused = fs.readFileSync(path.join(repo, 'src/guard.mjs'), 'utf8');
+    const survivedCode = runMutate({ cwd: repo, files: ['src/guard.mjs'], maxMutations: 5 });
+    assert.equal(survivedCode, 1);
+    assert.equal(fs.readFileSync(path.join(repo, 'src/guard.mjs'), 'utf8'), originalWithUnused);
   });
 });

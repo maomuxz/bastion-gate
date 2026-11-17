@@ -24,11 +24,25 @@ description: Enforce red-first test locking and immutable test gates with Bastio
 3. **Verify through the gate**: Run \`bastion gate\` before finishing. CI will re-run \`bastion gate\` against the baseline branch; local passes alone do not merge.
 4. **Test defects**: If a locked test is genuinely wrong, stop and ask a human to confirm \`bastion lock --amend --reason "..."\`.
 `;
-const WORKFLOW_YML = `name: Bastion Gate
+function buildWorkflowYaml(repoRoot, baseBranch, setupCommand) {
+    const setupSteps = [];
+    if (fs.existsSync(path.join(repoRoot, 'package.json'))) {
+        setupSteps.push(`      - uses: actions/setup-node@v4`, `        with:`, `          node-version: '20'`, `      - name: Install dependencies`, `        run: ${setupCommand ?? (fs.existsSync(path.join(repoRoot, 'package-lock.json')) ? 'npm ci' : 'npm install')}`);
+    }
+    else if (fs.existsSync(path.join(repoRoot, 'pyproject.toml')) ||
+        fs.existsSync(path.join(repoRoot, 'requirements.txt'))) {
+        const pyInstall = setupCommand ?? (fs.existsSync(path.join(repoRoot, 'requirements.txt')) ? 'pip install -r requirements.txt' : 'pip install -e .');
+        setupSteps.push(`      - uses: actions/setup-python@v5`, `        with:`, `          python-version: '3.12'`, `      - name: Install dependencies`, `        run: ${pyInstall}`);
+    }
+    else if (setupCommand) {
+        setupSteps.push(`      - name: Setup`, `        run: ${setupCommand}`);
+    }
+    const setupBlock = setupSteps.length > 0 ? setupSteps.join('\n') + '\n' : '';
+    return `name: Bastion Gate
 
 on:
   pull_request:
-    branches: [ main, master ]
+    branches: [ ${baseBranch} ]
 
 jobs:
   bastion-gate:
@@ -37,12 +51,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+${setupBlock}      - name: Run Bastion Gate
+        uses: maomuxz/bastion-gate@v0
         with:
-          node-version: '20'
-      - name: Run Bastion Gate
-        run: npx --yes bastion-gate gate --base "origin/\${{ github.base_ref }}"
+          base: "origin/\${{ github.base_ref }}"
 `;
+}
 function detectTestCommand(repoRoot) {
     const probes = [
         ['pyproject.toml', 'pytest'],
@@ -65,7 +79,7 @@ function detectBaseBranch(repoRoot) {
 }
 function ensureGitignoreEntries(repoRoot) {
     const gitignorePath = path.join(repoRoot, '.gitignore');
-    const entries = ['.bastion/worktrees/', '.bastion/logs/', '.bastion/receipts/', '.bastion/run-state.json'];
+    const entries = ['.bastion/worktrees/', '.bastion/logs/', '.bastion/receipts/', '.bastion/run-state.json', '.bastion/run.pid'];
     const existing = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf8') : '';
     const missing = entries.filter((e) => !existing.includes(e));
     if (missing.length === 0)
@@ -77,13 +91,15 @@ function ensureGitignoreEntries(repoRoot) {
 export function runInit(opts) {
     const repoRoot = getRepoRoot(opts.cwd) ?? path.resolve(opts.cwd);
     const configPath = path.join(repoRoot, CONFIG_REL_PATH);
+    const resolvedBase = opts.baseBranch ?? detectBaseBranch(repoRoot);
+    const resolvedTestCmd = opts.testCommand ?? detectTestCommand(repoRoot);
     if (fs.existsSync(configPath) && !opts.force) {
         console.log(`[bastion] ${CONFIG_REL_PATH} already exists (use --force to overwrite).`);
     }
     else {
         const config = createDefaultConfig({
-            testCommand: opts.testCommand ?? detectTestCommand(repoRoot),
-            baseBranch: opts.baseBranch ?? detectBaseBranch(repoRoot),
+            testCommand: resolvedTestCmd,
+            baseBranch: resolvedBase,
         });
         writeConfigToDisk(repoRoot, config);
         console.log(`[bastion] Created ${CONFIG_REL_PATH}`);
@@ -116,7 +132,7 @@ export function runInit(opts) {
     const workflowPath = path.join(repoRoot, '.github', 'workflows', 'bastion.yml');
     if (!fs.existsSync(workflowPath) || opts.force) {
         fs.mkdirSync(path.dirname(workflowPath), { recursive: true });
-        fs.writeFileSync(workflowPath, WORKFLOW_YML, 'utf8');
+        fs.writeFileSync(workflowPath, buildWorkflowYaml(repoRoot, resolvedBase), 'utf8');
         console.log('[bastion] Created .github/workflows/bastion.yml');
     }
     console.log('\nNext steps:');

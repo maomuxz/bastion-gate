@@ -96,9 +96,11 @@ npx bastion-gate run --setup "npm ci" --agent "claude -p < {promptFile}" --concu
 - `bastion run [--base <ref>] [--agent "<cmd>"] [--setup "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>] [--timeout <min>] [--resume]`  
   Spawns parallel worktree workers on a `bastion/run-*` integration branch, enforces `gate` with failure-output feedback retries, skips sensitive files like `.env`, supports `--resume` after wave failures, and verifies N times after merge.
 - `bastion mutate [--max <n>] [files...]`  
-  Lightweight mutation spot-check: injects small mutations into source files, verifies tests catch every mutant, and always restores original files.
+  Lightweight mutation spot-check: runs inside an isolated temporary worktree (leaving your source untouched), skips auxiliary directories (`scripts/`, `examples/`, `demo/`, etc., configurable via `mutateExclude`), samples evenly across files, and reports killed vs. survived mutants.
 - `bastion audit [--limit <n>]`  
   Audits recent merge commits in local-only repositories to catch any locked-scope bypasses.
+- `bastion clean [--yes] [--runs]`  
+  Dry-run by default: previews leftover worktrees and temporary `bastion/<node>` branches. Pass `--yes` to delete them (preserves `bastion/run-*` integration branches unless `--runs` is also passed for already-merged runs).
 
 ## Troubleshooting
 

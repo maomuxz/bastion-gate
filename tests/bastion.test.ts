@@ -5,6 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { runAudit } from '../src/commands/audit.js';
+import { runClean } from '../src/commands/clean.js';
 import { runGate } from '../src/commands/gate.js';
 import { runInit } from '../src/commands/init.js';
 import { runLock } from '../src/commands/lock.js';
@@ -419,5 +420,72 @@ describe('bastion-gate v0.1 e2e', () => {
     });
     assert.equal(code, 1);
     assert.equal(fs.existsSync(path.join(repo, '.bastion', 'logs', 'd1-attempt-2.log')), false);
+  });
+
+  it('init generates consistent workflow with setup steps and baseBranch; plan --init deduplicates IDs and orders integration tests', () => {
+    const repo = createTempGitRepo();
+    git(['checkout', '-b', 'develop'], repo);
+    writeRepoFile(repo, 'package.json', JSON.stringify({ name: 'demo', scripts: { test: 'vitest run' } }));
+    writeRepoFile(repo, 'package-lock.json', '{}');
+    assert.equal(runInit({ cwd: repo }), 0);
+
+    const wf = fs.readFileSync(path.join(repo, '.github', 'workflows', 'bastion.yml'), 'utf8');
+    assert.ok(wf.includes('branches: [ develop ]'));
+    assert.ok(wf.includes('fetch-depth: 0'));
+    assert.ok(wf.includes('run: npm ci'));
+    assert.ok(wf.includes('uses: maomuxz/bastion-gate@v0'));
+
+    // Test duplicate filenames + integration test placement
+    writeRepoFile(repo, 'tests/a/index.test.mjs', 'import test from "node:test"; import assert from "node:assert/strict"; test("a", () => { assert.equal(1, 2); });\n');
+    writeRepoFile(repo, 'tests/b/index.test.mjs', 'import test from "node:test"; import assert from "node:assert/strict"; test("b", () => { assert.equal(1, 2); });\n');
+    writeRepoFile(repo, 'tests/cli.test.mjs', 'import test from "node:test"; import assert from "node:assert/strict"; test("cli", () => { assert.equal(1, 2); });\n');
+    // Override testCommand to node --test so lock can actually execute without vitest installed
+    const cfg = JSON.parse(fs.readFileSync(path.join(repo, '.bastion', 'config.json'), 'utf8'));
+    cfg.testCommand = 'node --test tests/**/*.test.mjs';
+    writeRepoFile(repo, '.bastion/config.json', JSON.stringify(cfg, null, 2));
+
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'test: duplicate names + cli'], repo);
+    assert.equal(runLock({ cwd: repo }), 0);
+    assert.equal(runPlan({ cwd: repo, init: true }), 0);
+
+    const plan = JSON.parse(fs.readFileSync(path.join(repo, '.bastion', 'plan.json'), 'utf8'));
+    const ids = plan.nodes.map((n: { id: string }) => n.id);
+    assert.equal(new Set(ids).size, 3);
+    const cliNode = plan.nodes.find((n: { id: string }) => n.id === 'cli-test');
+    assert.ok(cliNode);
+    assert.equal(cliNode.dependsOn.length, 2);
+    assert.equal(cliNode.testCommand, undefined);
+    const unitNode = plan.nodes.find((n: { id: string }) => n.id !== 'cli-test');
+    assert.ok(unitNode.testCommand.startsWith('node --test '));
+  });
+
+  it('mutate skips auxiliary dirs in isolated worktree and clean respects dry-run + preserves run-* branches', () => {
+    const repo = createTempGitRepo();
+    runInit({ cwd: repo, testCommand: 'node --test tests/app.test.mjs', baseBranch: 'main' });
+    writeRepoFile(repo, 'scripts/helper.mjs', 'export const ok = true;\n');
+    writeRepoFile(repo, 'src/app.mjs', 'export function ok() { return true; }\n');
+    writeRepoFile(repo, 'tests/app.test.mjs', 'import test from "node:test"; import assert from "node:assert/strict"; import { ok } from "../src/app.mjs"; test("ok", () => { assert.equal(ok(), true); });\n');
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'feat: initial app'], repo);
+
+    // Mutate without file args must skip scripts/helper.mjs and only kill src/app.mjs
+    assert.equal(runMutate({ cwd: repo, maxMutations: 5 }), 0);
+
+    // Create dummy bastion/tmp-node and bastion/run-123 branches + logs
+    git(['branch', 'bastion/tmp-node'], repo);
+    git(['branch', 'bastion/run-123'], repo);
+    writeRepoFile(repo, '.bastion/logs/a.log', 'log\n');
+
+    // Dry-run deletes nothing
+    assert.equal(runClean({ cwd: repo }), 0);
+    assert.ok(fs.existsSync(path.join(repo, '.bastion', 'logs', 'a.log')));
+    assert.ok(git(['branch', '--list', 'bastion/tmp-node'], repo).includes('bastion/tmp-node'));
+
+    // --yes deletes tmp-node and logs, but preserves bastion/run-123
+    assert.equal(runClean({ cwd: repo, yes: true }), 0);
+    assert.equal(fs.existsSync(path.join(repo, '.bastion', 'logs')), false);
+    assert.equal(git(['branch', '--list', 'bastion/tmp-node'], repo), '');
+    assert.ok(git(['branch', '--list', 'bastion/run-123'], repo).includes('bastion/run-123'));
   });
 });

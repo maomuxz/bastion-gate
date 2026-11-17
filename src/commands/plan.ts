@@ -45,6 +45,65 @@ const FALLBACK_PLAN: BastionPlan = {
   ],
 };
 
+function resolveEffectiveTestCommand(repoRoot: string, rawTestCommand: string): string {
+  const trimmed = rawTestCommand.trim();
+  if (/^npm\s+test\b/.test(trimmed)) {
+    const pkgPath = path.join(repoRoot, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { scripts?: { test?: string } };
+        if (pkg.scripts?.test) return pkg.scripts.test.trim();
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return trimmed;
+}
+
+function deriveNodeTestCommand(repoRoot: string, globalTestCommand: string, testFile: string): string | undefined {
+  const effective = resolveEffectiveTestCommand(repoRoot, globalTestCommand);
+
+  if (/\bvitest\b/.test(effective)) return `npx vitest run ${testFile}`;
+  if (/\bjest\b/.test(effective)) return `npx jest ${testFile}`;
+  if (/^node\s+--test\b/.test(effective)) return `node --test ${testFile}`;
+  if (/^(?:python\s+-m\s+)?pytest\b/.test(effective)) return `pytest ${testFile}`;
+  if (/^flutter\s+test\b/.test(effective)) return `flutter test ${testFile}`;
+
+  if (/^go\s+test\b/.test(effective)) {
+    const dir = path.posix.dirname(testFile);
+    return dir === '.' ? 'go test .' : `go test ./${dir}/`;
+  }
+
+  if (/^cargo\s+test\b/.test(effective) && testFile.startsWith('tests/')) {
+    const stem = path.basename(testFile, path.extname(testFile));
+    return `cargo test --test ${stem}`;
+  }
+
+  return undefined;
+}
+
+function isLikelyIntegrationTest(testFile: string): boolean {
+  const base = path.basename(testFile).toLowerCase();
+  return /^(?:cli|main|app|e2e|integration)[._-]/.test(base);
+}
+
+function makeUniqueNodeId(testFile: string, used: Set<string>, index: number): string {
+  const clean = (s: string) => s.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+  const baseStem = path.basename(testFile).replace(/\.[^.]+$/, '');
+  let id = clean(baseStem) || `node-${index + 1}`;
+
+  if (used.has(id)) {
+    const parent = path.posix.dirname(testFile);
+    const parentClean = parent !== '.' ? clean(parent.replace(/\//g, '-')) : '';
+    const candidate = parentClean ? `${parentClean}-${id}` : `${id}-${index + 1}`;
+    id = used.has(candidate) ? `${candidate}-${index + 1}` : candidate;
+  }
+
+  used.add(id);
+  return id;
+}
+
 function buildDraftPlanFromLock(repoRoot: string): BastionPlan | null {
   const lockPath = path.join(repoRoot, LOCK_REL_PATH);
   if (!fs.existsSync(lockPath)) return null;
@@ -57,18 +116,44 @@ function buildDraftPlanFromLock(repoRoot: string): BastionPlan | null {
 
   if (testFiles.length === 0) return null;
 
-  const nodes: PlanNode[] = testFiles.map((file, idx) => {
-    const baseName = path.basename(file).replace(/\.[^.]+$/, '');
-    const id = baseName.replace(/[^a-zA-Z0-9_-]+/g, '-').toLowerCase() || `node-${idx + 1}`;
-    return {
+  const usedIds = new Set<string>();
+  const unitNodes: PlanNode[] = [];
+  const integrationSpecs: Array<{ id: string; file: string }> = [];
+
+  testFiles.forEach((file, idx) => {
+    const id = makeUniqueNodeId(file, usedIds, idx);
+    if (isLikelyIntegrationTest(file) && testFiles.length > 1) {
+      integrationSpecs.push({ id, file });
+      return;
+    }
+
+    const nodeCmd = deriveNodeTestCommand(repoRoot, config.testCommand, file);
+    if (!nodeCmd) {
+      console.log(`[bastion] Note: could not derive single-file command for "${file}"; node "${id}" will run the full testCommand.`);
+    }
+    unitNodes.push({
       id,
       title: `Pass ${file}`,
       prompt: `Implement the code required to pass ${file} without modifying locked tests or .bastion/.`,
+      ...(nodeCmd ? { testCommand: nodeCmd } : {}),
       tier: 1,
-    };
+    });
   });
 
-  return { version: 1, nodes };
+  const unitIds = unitNodes.map((n) => n.id);
+  const integrationNodes: PlanNode[] = integrationSpecs.map(({ id, file }) => ({
+    id,
+    title: `Integrate (${file})`,
+    ...(unitIds.length > 0 ? { dependsOn: unitIds } : {}),
+    prompt: `Integrate modules and verify ${file} passes without modifying locked tests or .bastion/.`,
+    tier: 1,
+  }));
+
+  if (integrationNodes.length > 0) {
+    console.log(`[bastion] Placed ${integrationNodes.map((n) => n.id).join(', ')} in Wave 2 (verify dependencies before running).`);
+  }
+
+  return { version: 1, nodes: [...unitNodes, ...integrationNodes] };
 }
 
 export function runPlan(opts: PlanOptions): number {

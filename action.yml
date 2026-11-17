@@ -1,5 +1,5 @@
 name: 'Bastion Gate'
-description: 'Verify locked tests/configs were not altered and run the baseline test command.'
+description: 'Verify locked tests/configs were not altered and run the baseline test command. (Requires actions/checkout with fetch-depth: 0)'
 inputs:
   base:
     description: 'Baseline git ref to verify against (defaults to origin/${{ github.base_ref }} or config.baseBranch)'

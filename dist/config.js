@@ -88,6 +88,9 @@ function parseConfigJson(raw, label) {
         ...(typeof parsed.agentCommand === 'string' && parsed.agentCommand.trim()
             ? { agentCommand: parsed.agentCommand.trim() }
             : {}),
+        ...(Array.isArray(parsed.mutateExclude)
+            ? { mutateExclude: parsed.mutateExclude.map(toPosixPath) }
+            : {}),
         ...(typeof parsed.concurrency === 'number' && parsed.concurrency > 0
             ? { concurrency: Math.floor(parsed.concurrency) }
             : {}),

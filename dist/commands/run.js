@@ -200,97 +200,106 @@ export async function runSwarm(opts) {
         writeRunState(repoRoot, { integrationBranch, baseRef, completedNodes: [] });
     }
     const logsDir = path.join(repoRoot, '.bastion', 'logs');
-    console.log(`[bastion] Integration branch: ${integrationBranch}`);
-    console.log(`[bastion] Starting parallel swarm (${plan.nodes.length} nodes, ${waves.length} waves, concurrency=${concurrency}, maxRetries=${maxRetries})`);
-    for (let w = 0; w < waves.length; w++) {
-        const pendingNodes = waves[w].filter((n) => !completedSet.has(n.id));
-        if (pendingNodes.length === 0) {
-            console.log(`\n=== Wave ${w + 1}/${waves.length}: all nodes already completed, skipping ===`);
-            continue;
-        }
-        console.log(`\n=== Wave ${w + 1}/${waves.length}: [${pendingNodes.map((n) => n.id).join(', ')}] ===`);
-        const currentHead = resolveRef('HEAD', repoRoot);
-        const handles = pendingNodes.map((node) => createNodeWorktree(repoRoot, currentHead, node.id));
-        try {
-            const outcomes = await runWithConcurrency(pendingNodes.map((node, i) => ({ node, handle: handles[i] })), concurrency, async ({ node, handle }) => {
-                if (setupCmd) {
-                    console.log(`[${node.id}] Running setupCommand: ${setupCmd}`);
-                    const setupRes = await runTestCommandAsync(setupCmd, handle.dir, timeoutMs);
-                    if (setupRes.exitCode !== 0) {
-                        console.error(`[${node.id}] SETUP FAILED (exit ${setupRes.exitCode}):\n${setupRes.stderr || setupRes.stdout}`);
-                        return { ok: false, node, handle };
-                    }
-                }
-                let feedback = '';
-                for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-                    const logFile = path.join(logsDir, `${node.id}-attempt-${attempt}.log`);
-                    const promptFile = path.join(logsDir, `${node.id}-prompt.txt`);
-                    console.log(`[${node.id}] Attempt ${attempt}/${maxRetries + 1} in ${handle.branch} (log: .bastion/logs/${node.id}-attempt-${attempt}.log)`);
-                    const agentRes = await runAgentAsync(agentCmd, node, handle.dir, attempt, feedback, logFile, promptFile, timeoutMs);
-                    if (agentRes.exitCode !== 0) {
-                        feedback = agentRes.timedOut
-                            ? `Agent timed out after ${Math.round(timeoutMs / 60_000)}m.`
-                            : `Agent command exited with ${agentRes.exitCode}.\n${agentRes.output.slice(-800)}`;
-                        console.error(`[${node.id}] Agent exited ${agentRes.exitCode}, retrying...`);
-                        continue;
-                    }
-                    // Check if the agent filed a test_defect dispute instead of trying to cheat
-                    const disputeFile = path.join(handle.dir, '.bastion', 'disputes', `${node.id}.md`);
-                    if (fs.existsSync(disputeFile)) {
-                        const reason = fs.readFileSync(disputeFile, 'utf8').trim();
-                        console.error(`[${node.id}] DISPUTE FILED (.bastion/disputes/${node.id}.md) — pausing node for human review:\n${reason}`);
-                        return { ok: false, node, handle };
-                    }
-                    const gateRes = await runGateAsync({
-                        cwd: handle.dir,
-                        baseRef,
-                        testCommandOverride: node.testCommand,
-                    });
-                    if (gateRes.exitCode === 0) {
-                        if (!stageSafeWorktreeFiles(handle.dir, node.id)) {
+    const pidFile = path.join(repoRoot, '.bastion', 'run.pid');
+    fs.mkdirSync(path.dirname(pidFile), { recursive: true });
+    fs.writeFileSync(pidFile, String(process.pid), 'utf8');
+    try {
+        console.log(`[bastion] Integration branch: ${integrationBranch}`);
+        console.log(`[bastion] Starting parallel swarm (${plan.nodes.length} nodes, ${waves.length} waves, concurrency=${concurrency}, maxRetries=${maxRetries})`);
+        for (let w = 0; w < waves.length; w++) {
+            const pendingNodes = waves[w].filter((n) => !completedSet.has(n.id));
+            if (pendingNodes.length === 0) {
+                console.log(`\n=== Wave ${w + 1}/${waves.length}: all nodes already completed, skipping ===`);
+                continue;
+            }
+            console.log(`\n=== Wave ${w + 1}/${waves.length}: [${pendingNodes.map((n) => n.id).join(', ')}] ===`);
+            const currentHead = resolveRef('HEAD', repoRoot);
+            const handles = pendingNodes.map((node) => createNodeWorktree(repoRoot, currentHead, node.id));
+            try {
+                const outcomes = await runWithConcurrency(pendingNodes.map((node, i) => ({ node, handle: handles[i] })), concurrency, async ({ node, handle }) => {
+                    if (setupCmd) {
+                        console.log(`[${node.id}] Running setupCommand: ${setupCmd}`);
+                        const setupRes = await runTestCommandAsync(setupCmd, handle.dir, timeoutMs);
+                        if (setupRes.exitCode !== 0) {
+                            console.error(`[${node.id}] SETUP FAILED (exit ${setupRes.exitCode}):\n${setupRes.stderr || setupRes.stdout}`);
                             return { ok: false, node, handle };
                         }
-                        console.log(`[${node.id}] GATE PASS on attempt ${attempt}.`);
-                        return { ok: true, node, handle };
                     }
-                    feedback = gateRes.feedback;
-                    console.error(`[${node.id}] Gate failed on attempt ${attempt}, feeding back error to agent...`);
+                    let feedback = '';
+                    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+                        const logFile = path.join(logsDir, `${node.id}-attempt-${attempt}.log`);
+                        const promptFile = path.join(logsDir, `${node.id}-prompt.txt`);
+                        console.log(`[${node.id}] Attempt ${attempt}/${maxRetries + 1} in ${handle.branch} (log: .bastion/logs/${node.id}-attempt-${attempt}.log)`);
+                        const agentRes = await runAgentAsync(agentCmd, node, handle.dir, attempt, feedback, logFile, promptFile, timeoutMs);
+                        if (agentRes.exitCode !== 0) {
+                            feedback = agentRes.timedOut
+                                ? `Agent timed out after ${Math.round(timeoutMs / 60_000)}m.`
+                                : `Agent command exited with ${agentRes.exitCode}.\n${agentRes.output.slice(-800)}`;
+                            console.error(`[${node.id}] Agent exited ${agentRes.exitCode}, retrying...`);
+                            continue;
+                        }
+                        // Check if the agent filed a test_defect dispute instead of trying to cheat
+                        const disputeFile = path.join(handle.dir, '.bastion', 'disputes', `${node.id}.md`);
+                        if (fs.existsSync(disputeFile)) {
+                            const reason = fs.readFileSync(disputeFile, 'utf8').trim();
+                            console.error(`[${node.id}] DISPUTE FILED (.bastion/disputes/${node.id}.md) — pausing node for human review:\n${reason}`);
+                            return { ok: false, node, handle };
+                        }
+                        const gateRes = await runGateAsync({
+                            cwd: handle.dir,
+                            baseRef,
+                            testCommandOverride: node.testCommand,
+                        });
+                        if (gateRes.exitCode === 0) {
+                            if (!stageSafeWorktreeFiles(handle.dir, node.id)) {
+                                return { ok: false, node, handle };
+                            }
+                            console.log(`[${node.id}] GATE PASS on attempt ${attempt}.`);
+                            return { ok: true, node, handle };
+                        }
+                        feedback = gateRes.feedback;
+                        console.error(`[${node.id}] Gate failed on attempt ${attempt}, feeding back error to agent...`);
+                    }
+                    return { ok: false, node, handle };
+                });
+                const failed = outcomes.filter((o) => !o.ok);
+                if (failed.length > 0) {
+                    console.error(`\n[bastion] Wave ${w + 1} failed: ${failed.map((f) => f.node.id).join(', ')}`);
+                    console.error(`[bastion] Inspect logs under .bastion/logs/. Fix and resume with: bastion run --resume`);
+                    return 1;
                 }
-                return { ok: false, node, handle };
-            });
-            const failed = outcomes.filter((o) => !o.ok);
-            if (failed.length > 0) {
-                console.error(`\n[bastion] Wave ${w + 1} failed: ${failed.map((f) => f.node.id).join(', ')}`);
-                console.error(`[bastion] Inspect logs under .bastion/logs/. Fix and resume with: bastion run --resume`);
+                for (const { node, handle } of outcomes) {
+                    console.log(`[bastion] Merging ${handle.branch} -> ${integrationBranch}...`);
+                    mergeNodeBranch(repoRoot, handle, node.title);
+                    completedSet.add(node.id);
+                    writeRunState(repoRoot, {
+                        integrationBranch,
+                        baseRef,
+                        completedNodes: [...completedSet],
+                    });
+                }
+            }
+            finally {
+                for (const handle of handles) {
+                    removeNodeWorktree(repoRoot, handle);
+                }
+            }
+        }
+        console.log(`\n[bastion] All waves merged into ${integrationBranch}! Running final verification (${verifyRuns}x)...`);
+        for (let i = 1; i <= verifyRuns; i++) {
+            const res = await runTestCommandAsync(config.testCommand, repoRoot, timeoutMs);
+            if (res.exitCode !== 0) {
+                console.error(`[bastion] Final verification ${i}/${verifyRuns} FAILED (exit ${res.exitCode}).`);
                 return 1;
             }
-            for (const { node, handle } of outcomes) {
-                console.log(`[bastion] Merging ${handle.branch} -> ${integrationBranch}...`);
-                mergeNodeBranch(repoRoot, handle, node.title);
-                completedSet.add(node.id);
-                writeRunState(repoRoot, {
-                    integrationBranch,
-                    baseRef,
-                    completedNodes: [...completedSet],
-                });
-            }
+            console.log(`[bastion] Final verification ${i}/${verifyRuns} PASS (${res.durationMs}ms).`);
         }
-        finally {
-            for (const handle of handles) {
-                removeNodeWorktree(repoRoot, handle);
-            }
-        }
+        console.log(`\n[bastion] SWARM COMPLETE on branch "${integrationBranch}".`);
+        console.log(`  Review and merge when ready: git checkout ${baseRef} && git merge --no-ff ${integrationBranch}`);
+        return 0;
     }
-    console.log(`\n[bastion] All waves merged into ${integrationBranch}! Running final verification (${verifyRuns}x)...`);
-    for (let i = 1; i <= verifyRuns; i++) {
-        const res = await runTestCommandAsync(config.testCommand, repoRoot, timeoutMs);
-        if (res.exitCode !== 0) {
-            console.error(`[bastion] Final verification ${i}/${verifyRuns} FAILED (exit ${res.exitCode}).`);
-            return 1;
-        }
-        console.log(`[bastion] Final verification ${i}/${verifyRuns} PASS (${res.durationMs}ms).`);
+    finally {
+        if (fs.existsSync(pidFile))
+            fs.unlinkSync(pidFile);
     }
-    console.log(`\n[bastion] SWARM COMPLETE on branch "${integrationBranch}".`);
-    console.log(`  Review and merge when ready: git checkout ${baseRef} && git merge --no-ff ${integrationBranch}`);
-    return 0;
 }

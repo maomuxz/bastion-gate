@@ -15,6 +15,7 @@ export interface BastionConfig {
   extraLockedPaths: string[];
   setupCommand?: string;
   agentCommand?: string;
+  mutateExclude?: string[];
   concurrency?: number;
   maxRetries?: number;
   verifyRuns?: number;
@@ -156,6 +157,9 @@ function parseConfigJson(raw: string, label: string): BastionConfig {
       : {}),
     ...(typeof parsed.agentCommand === 'string' && parsed.agentCommand.trim()
       ? { agentCommand: parsed.agentCommand.trim() }
+      : {}),
+    ...(Array.isArray(parsed.mutateExclude)
+      ? { mutateExclude: parsed.mutateExclude.map(toPosixPath) }
       : {}),
     ...(typeof parsed.concurrency === 'number' && parsed.concurrency > 0
       ? { concurrency: Math.floor(parsed.concurrency) }

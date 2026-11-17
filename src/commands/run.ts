@@ -268,6 +268,11 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
   }
 
   const logsDir = path.join(repoRoot, '.bastion', 'logs');
+  const pidFile = path.join(repoRoot, '.bastion', 'run.pid');
+  fs.mkdirSync(path.dirname(pidFile), { recursive: true });
+  fs.writeFileSync(pidFile, String(process.pid), 'utf8');
+
+  try {
   console.log(`[bastion] Integration branch: ${integrationBranch}`);
   console.log(`[bastion] Starting parallel swarm (${plan.nodes.length} nodes, ${waves.length} waves, concurrency=${concurrency}, maxRetries=${maxRetries})`);
 
@@ -389,4 +394,7 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
   console.log(`\n[bastion] SWARM COMPLETE on branch "${integrationBranch}".`);
   console.log(`  Review and merge when ready: git checkout ${baseRef} && git merge --no-ff ${integrationBranch}`);
   return 0;
+  } finally {
+    if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile);
+  }
 }

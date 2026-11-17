@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { runAudit } from './commands/audit.js';
+import { runClean } from './commands/clean.js';
 import { runGate } from './commands/gate.js';
 import { runInit } from './commands/init.js';
 import { runLock } from './commands/lock.js';
 import { runMutate } from './commands/mutate.js';
 import { runPlan } from './commands/plan.js';
 import { runSwarm } from './commands/run.js';
-const HELP = `bastion (bastion-gate) v0.3.0
+import { BASTION_VERSION } from './version.js';
+const HELP = `bastion (bastion-gate) v${BASTION_VERSION}
 Multi-agent parallel development & hard-gate CLI for AI coding agents.
 
 Usage:
@@ -18,6 +20,7 @@ Usage:
   bastion run [--base <ref>] [--agent "<cmd>"] [--setup "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>] [--timeout <min>] [--resume]
   bastion mutate [--max <n>] [files...]
   bastion audit [--limit <n>]
+  bastion clean [--yes] [--runs]
   bastion --help
 `;
 async function main() {
@@ -148,6 +151,21 @@ async function main() {
                 return runAudit({
                     cwd,
                     limit: values.limit ? Number(values.limit) : undefined,
+                });
+            }
+            case 'clean': {
+                const { values } = parseArgs({
+                    args: rest,
+                    options: {
+                        yes: { type: 'boolean', default: false },
+                        runs: { type: 'boolean', default: false },
+                    },
+                    allowPositionals: false,
+                });
+                return runClean({
+                    cwd,
+                    yes: values.yes,
+                    runs: values.runs,
                 });
             }
             default:

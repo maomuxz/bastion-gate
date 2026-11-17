@@ -58,6 +58,20 @@ jobs:
         run: npx --yes bastion-gate gate --base "origin/\${{ github.base_ref }}"
 `;
 
+function detectTestCommand(repoRoot: string): string {
+  const probes: Array<[string, string]> = [
+    ['pyproject.toml', 'pytest'],
+    ['pytest.ini', 'pytest'],
+    ['go.mod', 'go test ./...'],
+    ['Cargo.toml', 'cargo test'],
+    ['pubspec.yaml', 'flutter test'],
+  ];
+  for (const [marker, cmd] of probes) {
+    if (fs.existsSync(path.join(repoRoot, marker))) return cmd;
+  }
+  return 'npm test';
+}
+
 export function runInit(opts: InitOptions): number {
   const repoRoot = getRepoRoot(opts.cwd) ?? path.resolve(opts.cwd);
   const configPath = path.join(repoRoot, CONFIG_REL_PATH);
@@ -66,7 +80,7 @@ export function runInit(opts: InitOptions): number {
     console.log(`[bastion] ${CONFIG_REL_PATH} already exists (use --force to overwrite).`);
   } else {
     const config = createDefaultConfig({
-      testCommand: opts.testCommand,
+      testCommand: opts.testCommand ?? detectTestCommand(repoRoot),
       baseBranch: opts.baseBranch,
     });
     writeConfigToDisk(repoRoot, config);

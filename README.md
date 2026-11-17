@@ -26,14 +26,16 @@ git add .bastion/lock.json && git commit -m "chore: lock baseline tests"
 npx bastion-gate gate --base main
 ```
 
-## Commands (v0.1)
+## Commands
 
 - `bastion init [--test-cmd "<cmd>"] [--base <branch>] [--force]`  
-  Creates `.bastion/config.json`, `AGENTS.md` snippet, `.agents/skills/bastion-gate/SKILL.md`, and `.github/workflows/bastion.yml`.
+  Creates `.bastion/config.json` (auto-detecting `pytest`, `go test ./...`, `cargo test`, `flutter test`, or `npm test`), `AGENTS.md` snippet, `.agents/skills/bastion-gate/SKILL.md`, and `.github/workflows/bastion.yml`.
 - `bastion lock [--base <ref>] [--amend --reason "<why>"] [--allow-dirty] [files...]`  
-  Runs `testCommand` on baseline, rejects green tests, locks test files + configs/fixtures (`conftest.py`, `package.json`, `vitest.config.*`, etc.), and prints a plain-language list of locked test names.
+  Runs `testCommand` on baseline, rejects green tests, locks git-tracked test files + configs/fixtures (`conftest.py`, `package.json`, `vitest.config.*`, etc.), and prints a plain-language list of locked test names.
 - `bastion gate [--base <ref>]`  
   Reads config and lock from the baseline ref, verifies zero modifications to locked files or `.bastion/`, and executes `testCommand` directly.
+- `bastion mutate [--max <n>] [files...]`  
+  Lightweight mutation spot-check: injects small mutations into source files, verifies tests catch every mutant, and always restores original files.
 - `bastion audit [--limit <n>]`  
   Audits recent merge commits in local-only repositories to catch any locked-scope bypasses.
 

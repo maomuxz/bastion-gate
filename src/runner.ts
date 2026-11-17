@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { toPosixPath } from './git.js';
+import { execGit, toPosixPath } from './git.js';
 
 export interface CommandRunResult {
   exitCode: number;
@@ -80,10 +80,19 @@ export function matchesAnyGlob(relPath: string, globs: string[]): boolean {
   return globs.some((g) => globToRegExp(g).test(posix));
 }
 
-const IGNORED_DIRS = new Set(['.git', 'node_modules', '.venv', 'venv', 'dist', 'build', '.bastion']);
+const IGNORED_DIRS = new Set(['.git', 'node_modules', '.venv', 'venv', 'dist', 'dist-test', 'build', '.bastion']);
 
-/** Walk repo files (excluding .git, node_modules, etc.) and return POSIX relative paths. */
+/** Walk repo files respecting .gitignore via `git ls-files`, with filesystem fallback. */
 export function walkRepoFiles(repoRoot: string): string[] {
+  const gitRes = execGit(['ls-files', '--cached', '--others', '--exclude-standard'], repoRoot);
+  if (gitRes.ok) {
+    return gitRes.stdout
+      .split(/\r?\n/)
+      .map((s) => toPosixPath(s.trim()))
+      .filter((rel) => rel && !rel.startsWith('.bastion/') && fs.existsSync(path.join(repoRoot, rel)))
+      .sort();
+  }
+
   const results: string[] = [];
   const walk = (dir: string) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

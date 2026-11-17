@@ -47,7 +47,7 @@ npx bastion-gate run --setup "npm ci" --agent "claude -p < {promptFile}" --concu
 
 | Agent CLI | Recommended `--agent` command |
 |---|---|
-| **Claude Code** | `claude -p < {promptFile}` *(add `--permission-mode acceptEdits` or `--dangerously-skip-permissions` if non-interactive)* |
+| **Claude Code** | `claude -p --permission-mode acceptEdits --allowedTools "Bash(node --test:*)" < {promptFile}` *(or use your test runner prefix, e.g. `Bash(pytest:*)`)* |
 | **Codex CLI** | `codex exec - < {promptFile}` |
 | **Node / Custom Script** | `node scripts/my-agent.mjs` (reads `BASTION_PROMPT` or `BASTION_PROMPT_FILE`) |
 

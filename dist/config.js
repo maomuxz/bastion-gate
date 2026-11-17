@@ -68,8 +68,11 @@ export function writeLockToDisk(repoRoot, lock) {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(repoRoot, LOCK_REL_PATH), JSON.stringify(lock, null, 2) + '\n', 'utf8');
 }
+function stripBom(raw) {
+    return raw.replace(/^\uFEFF/, '');
+}
 function parseConfigJson(raw, label) {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(stripBom(raw));
     if (!parsed || typeof parsed.testCommand !== 'string' || !parsed.testCommand.trim()) {
         throw new Error(`Invalid ${label}: "testCommand" must be a non-empty string.`);
     }
@@ -104,7 +107,7 @@ export function readPlanFromDisk(repoRoot) {
     if (!fs.existsSync(fullPath)) {
         throw new Error(`Missing ${PLAN_REL_PATH}. Run "bastion plan --init" first.`);
     }
-    const parsed = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+    const parsed = JSON.parse(stripBom(fs.readFileSync(fullPath, 'utf8')));
     if (!parsed || !Array.isArray(parsed.nodes) || parsed.nodes.length === 0) {
         throw new Error(`Invalid ${PLAN_REL_PATH}: "nodes" must be a non-empty array.`);
     }
@@ -116,7 +119,7 @@ export function writePlanToDisk(repoRoot, plan) {
     fs.writeFileSync(path.join(repoRoot, PLAN_REL_PATH), JSON.stringify(plan, null, 2) + '\n', 'utf8');
 }
 function parseLockJson(raw, label) {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(stripBom(raw));
     if (!parsed || typeof parsed.baseCommit !== 'string' || !Array.isArray(parsed.lockedFiles)) {
         throw new Error(`Invalid ${label}: missing baseCommit or lockedFiles.`);
     }

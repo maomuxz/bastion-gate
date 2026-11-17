@@ -136,8 +136,12 @@ export function writeLockToDisk(repoRoot: string, lock: BastionLock): void {
   fs.writeFileSync(path.join(repoRoot, LOCK_REL_PATH), JSON.stringify(lock, null, 2) + '\n', 'utf8');
 }
 
+function stripBom(raw: string): string {
+  return raw.replace(/^\uFEFF/, '');
+}
+
 function parseConfigJson(raw: string, label: string): BastionConfig {
-  const parsed = JSON.parse(raw) as Partial<BastionConfig>;
+  const parsed = JSON.parse(stripBom(raw)) as Partial<BastionConfig>;
   if (!parsed || typeof parsed.testCommand !== 'string' || !parsed.testCommand.trim()) {
     throw new Error(`Invalid ${label}: "testCommand" must be a non-empty string.`);
   }
@@ -173,7 +177,7 @@ export function readPlanFromDisk(repoRoot: string): BastionPlan {
   if (!fs.existsSync(fullPath)) {
     throw new Error(`Missing ${PLAN_REL_PATH}. Run "bastion plan --init" first.`);
   }
-  const parsed = JSON.parse(fs.readFileSync(fullPath, 'utf8')) as Partial<BastionPlan>;
+  const parsed = JSON.parse(stripBom(fs.readFileSync(fullPath, 'utf8'))) as Partial<BastionPlan>;
   if (!parsed || !Array.isArray(parsed.nodes) || parsed.nodes.length === 0) {
     throw new Error(`Invalid ${PLAN_REL_PATH}: "nodes" must be a non-empty array.`);
   }
@@ -187,7 +191,7 @@ export function writePlanToDisk(repoRoot: string, plan: BastionPlan): void {
 }
 
 function parseLockJson(raw: string, label: string): BastionLock {
-  const parsed = JSON.parse(raw) as Partial<BastionLock>;
+  const parsed = JSON.parse(stripBom(raw)) as Partial<BastionLock>;
   if (!parsed || typeof parsed.baseCommit !== 'string' || !Array.isArray(parsed.lockedFiles)) {
     throw new Error(`Invalid ${label}: missing baseCommit or lockedFiles.`);
   }

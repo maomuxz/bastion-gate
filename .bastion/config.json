@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "testCommand": "npm test",
+  "baseBranch": "main",
+  "lockedGlobs": [
+    "tests/**",
+    "test/**",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*_test.*"
+  ],
+  "extraLockedPaths": [
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "pyproject.toml",
+    "pytest.ini",
+    "setup.cfg",
+    "tox.ini",
+    "vitest.config.*",
+    "jest.config.*",
+    "tsconfig.json",
+    "**/conftest.py",
+    "**/fixtures/**",
+    "**/__snapshots__/**"
+  ]
+}

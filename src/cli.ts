@@ -4,14 +4,16 @@ import { runAudit } from './commands/audit.js';
 import { runGate } from './commands/gate.js';
 import { runInit } from './commands/init.js';
 import { runLock } from './commands/lock.js';
+import { runMutate } from './commands/mutate.js';
 
-const HELP = `bastion (bastion-gate) v0.1.0
+const HELP = `bastion (bastion-gate) v0.2.0
 Test-locking & hard-gate CLI for AI coding agents.
 
 Usage:
   bastion init [--test-cmd "<cmd>"] [--base <branch>] [--force]
   bastion lock [--base <ref>] [--amend --reason "<why>"] [--allow-dirty] [files...]
   bastion gate [--base <ref>]
+  bastion mutate [--max <n>] [files...]
   bastion audit [--limit <n>]
   bastion --help
 `;
@@ -80,6 +82,21 @@ function main(): number {
         return runGate({
           cwd,
           baseRef: values.base,
+        });
+      }
+
+      case 'mutate': {
+        const { values, positionals } = parseArgs({
+          args: rest,
+          options: {
+            max: { type: 'string' },
+          },
+          allowPositionals: true,
+        });
+        return runMutate({
+          cwd,
+          files: positionals,
+          maxMutations: values.max ? Number(values.max) : undefined,
         });
       }
 

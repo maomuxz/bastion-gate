@@ -4,6 +4,7 @@ import { CONFIG_REL_PATH, LOCK_REL_PATH, readConfigFromDisk, readLockFromDisk, w
 import { getDirtyFiles, getRepoRoot, resolveRef } from '../git.js';
 import { matchesAnyGlob, runTestCommand, sha256File, walkRepoFiles } from '../runner.js';
 import { extractTestNames } from '../test-names.js';
+const FAKE_RED_PATTERN = /(?:SyntaxError:|IndentationError:|ImportError:|ModuleNotFoundError:|ERR_MODULE_NOT_FOUND|Cannot find module ['"]|Cannot find package ['"])/;
 export function runLock(opts) {
     const repoRoot = getRepoRoot(opts.cwd);
     if (!repoRoot) {
@@ -75,6 +76,12 @@ export function runLock(opts) {
         console.error('  Bastion refuses to lock green tests. Write a failing test first, then run "bastion lock".');
         return 1;
     }
+    const combinedOutput = `${run.stdout}\n${run.stderr}`;
+    if (!opts.allowImportError && FAKE_RED_PATTERN.test(combinedOutput)) {
+        console.error('\n[REJECTED] Fake-red detected: tests failed due to SyntaxError or missing module/import, not a failing assertion!');
+        console.error('  Create stub exports/signatures first so the test fails on an assertion, then run "bastion lock".');
+        return 1;
+    }
     console.log(`[bastion] Red-first verified (exit ${run.exitCode} in ${run.durationMs}ms). Locking ${lockedPaths.length} file(s)...`);
     const lockedFiles = lockedPaths.map((rel) => ({
         path: rel,
@@ -118,6 +125,20 @@ export function runLock(opts) {
             for (const name of entry.names) {
                 console.log(`    - ${name}`);
             }
+        }
+    }
+    const acceptancePath = path.join(repoRoot, '.bastion', 'acceptance.md');
+    if (fs.existsSync(acceptancePath)) {
+        const accLines = fs
+            .readFileSync(acceptancePath, 'utf8')
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter((l) => /^[-*\d.]+\s+/.test(l));
+        if (accLines.length > 0) {
+            const totalTests = testSummary.reduce((acc, s) => acc + s.names.length, 0);
+            console.log(`\nAcceptance checklist (.bastion/acceptance.md: ${accLines.length} item(s) vs ${totalTests} locked test(s)):`);
+            for (const item of accLines)
+                console.log(`  ${item}`);
         }
     }
     console.log('\nRemember: commit .bastion/lock.json to your baseline branch before agents start coding.');

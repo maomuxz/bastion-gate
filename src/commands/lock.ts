@@ -19,7 +19,10 @@ export interface LockOptions {
   amend?: boolean;
   reason?: string;
   allowDirty?: boolean;
+  allowImportError?: boolean;
 }
+
+const FAKE_RED_PATTERN = /(?:SyntaxError:|IndentationError:|ImportError:|ModuleNotFoundError:|ERR_MODULE_NOT_FOUND|Cannot find module ['"]|Cannot find package ['"])/;
 
 export function runLock(opts: LockOptions): number {
   const repoRoot = getRepoRoot(opts.cwd);
@@ -99,6 +102,13 @@ export function runLock(opts: LockOptions): number {
     return 1;
   }
 
+  const combinedOutput = `${run.stdout}\n${run.stderr}`;
+  if (!opts.allowImportError && FAKE_RED_PATTERN.test(combinedOutput)) {
+    console.error('\n[REJECTED] Fake-red detected: tests failed due to SyntaxError or missing module/import, not a failing assertion!');
+    console.error('  Create stub exports/signatures first so the test fails on an assertion, then run "bastion lock".');
+    return 1;
+  }
+
   console.log(`[bastion] Red-first verified (exit ${run.exitCode} in ${run.durationMs}ms). Locking ${lockedPaths.length} file(s)...`);
 
   const lockedFiles = lockedPaths.map((rel) => ({
@@ -148,6 +158,20 @@ export function runLock(opts: LockOptions): number {
       for (const name of entry.names) {
         console.log(`    - ${name}`);
       }
+    }
+  }
+
+  const acceptancePath = path.join(repoRoot, '.bastion', 'acceptance.md');
+  if (fs.existsSync(acceptancePath)) {
+    const accLines = fs
+      .readFileSync(acceptancePath, 'utf8')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => /^[-*\d.]+\s+/.test(l));
+    if (accLines.length > 0) {
+      const totalTests = testSummary.reduce((acc, s) => acc + s.names.length, 0);
+      console.log(`\nAcceptance checklist (.bastion/acceptance.md: ${accLines.length} item(s) vs ${totalTests} locked test(s)):`);
+      for (const item of accLines) console.log(`  ${item}`);
     }
   }
 

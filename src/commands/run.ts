@@ -322,6 +322,14 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
               continue;
             }
 
+            // Check if the agent filed a test_defect dispute instead of trying to cheat
+            const disputeFile = path.join(handle.dir, '.bastion', 'disputes', `${node.id}.md`);
+            if (fs.existsSync(disputeFile)) {
+              const reason = fs.readFileSync(disputeFile, 'utf8').trim();
+              console.error(`[${node.id}] DISPUTE FILED (.bastion/disputes/${node.id}.md) — pausing node for human review:\n${reason}`);
+              return { ok: false, node, handle };
+            }
+
             const gateRes = await runGateAsync({
               cwd: handle.dir,
               baseRef,

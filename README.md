@@ -5,8 +5,9 @@
 > Like a fortress (*Bastion*): the outer wall locks your failing acceptance tests *before* coding starts and verifies every branch against the **baseline branch's** config in CI; inside the walls, multiple AI agents can work in parallel in isolated git worktrees by dependency waves.
 
 - **Works with any AI CLI or model**: plug in Claude Code, Codex, Gemini CLI, or any script via `agentCommand` — no vendor lock-in, no multi-model requirement
-- **Hard Test Gate (`init` + `lock` + `gate` + `mutate`)**: red-first test locking, baseline-ref config enforcement, lightweight mutation spot-checks, and `audit` for local-only repos
-- **Parallel Swarm Engine (`plan` + `run`, advanced)**: DAG wave scheduling, isolated `git worktree` sandboxes, `setupCommand` per worktree, concurrency throttling, automatic gate-feedback retry loops, and N-pass post-merge verification
+- **Hard Test Gate (`init` + `lock` + `gate` + `mutate`)**: red-first & anti-fake-red locking (rejects syntax/import-error fake reds), `.bastion/acceptance.md` checklist display, baseline-ref config enforcement, lightweight mutation spot-checks, and `audit` for local-only repos
+- **Parallel Swarm Engine (`plan` + `run`, advanced)**: DAG wave scheduling, isolated `git worktree` sandboxes, `setupCommand` per worktree, concurrency throttling, automatic gate-feedback retry loops, `.bastion/disputes/<nodeId>.md` human-review pause channel, and N-pass post-merge verification
+- **Scope & Target Audience**: Built for engineers and leads who can review a plain-language acceptance list. Bastion guarantees your agent didn't move the goalposts — not that the goalposts were placed in the right spot. (Tip: use a separate session/model to write tests vs. implementation.)
 - **Prerequisites**: **Node.js >= 18** and **Git >= 2.5** (for worktrees). Zero runtime dependencies. Built with Claude & Antigravity, and dogfooded by Bastion itself.
 
 ---

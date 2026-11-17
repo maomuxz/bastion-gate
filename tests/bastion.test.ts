@@ -385,4 +385,39 @@ describe('bastion-gate v0.1 e2e', () => {
     const resumeCode = await runSwarm({ cwd: repo, baseRef: 'main', agentCommand: 'node scripts/agent.mjs', maxRetries: 0, resume: true });
     assert.equal(resumeCode, 0);
   });
+
+  it('lock rejects fake-red import/syntax errors and run pauses on dispute file', async () => {
+    const repo = createTempGitRepo();
+    runInit({ cwd: repo, testCommand: 'node --test tests/missing.test.mjs', baseBranch: 'main' });
+    writeRepoFile(repo, 'tests/missing.test.mjs', `import { nope } from '../src/does-not-exist.mjs';\n`);
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'test: missing import'], repo);
+
+    // Fake-red (ERR_MODULE_NOT_FOUND) must be rejected by lock
+    assert.equal(runLock({ cwd: repo }), 1);
+
+    // Replace with real failing assertion + stub
+    writeRepoFile(repo, 'src/stub.mjs', 'export function val() { return 0; }\n');
+    writeRepoFile(repo, 'tests/missing.test.mjs', `import test from 'node:test'; import assert from 'node:assert/strict'; import { val } from '../src/stub.mjs'; test('val is 1', () => { assert.equal(val(), 1); });\n`);
+    writeRepoFile(
+      repo,
+      '.bastion/plan.json',
+      JSON.stringify({ version: 1, nodes: [{ id: 'd1', title: 'Dispute node', prompt: 'p' }] }, null, 2)
+    );
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'test: real failing assertion'], repo);
+    assert.equal(runLock({ cwd: repo }), 0);
+    git(['add', '.bastion/lock.json'], repo);
+    git(['commit', '-m', 'chore: lock'], repo);
+
+    // Agent files a dispute -> run pauses immediately without retrying
+    const code = await runSwarm({
+      cwd: repo,
+      baseRef: 'main',
+      maxRetries: 2,
+      agentCommand: `node -e "const fs=require('fs');fs.mkdirSync('.bastion/disputes',{recursive:true});fs.writeFileSync('.bastion/disputes/d1.md','test is wrong');"`,
+    });
+    assert.equal(code, 1);
+    assert.equal(fs.existsSync(path.join(repo, '.bastion', 'logs', 'd1-attempt-2.log')), false);
+  });
 });

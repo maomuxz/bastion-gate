@@ -4,6 +4,7 @@ import { readFileAtRef, toPosixPath } from './git.js';
 export const BASTION_DIR = '.bastion';
 export const CONFIG_REL_PATH = '.bastion/config.json';
 export const LOCK_REL_PATH = '.bastion/lock.json';
+export const PLAN_REL_PATH = '.bastion/plan.json';
 export const DEFAULT_EXTRA_LOCKED_PATHS = [
     'package.json',
     'package-lock.json',
@@ -78,7 +79,35 @@ function parseConfigJson(raw, label) {
         baseBranch: typeof parsed.baseBranch === 'string' && parsed.baseBranch.trim() ? parsed.baseBranch.trim() : 'main',
         lockedGlobs: Array.isArray(parsed.lockedGlobs) ? parsed.lockedGlobs.map(toPosixPath) : [],
         extraLockedPaths: Array.isArray(parsed.extraLockedPaths) ? parsed.extraLockedPaths.map(toPosixPath) : [],
+        ...(typeof parsed.agentCommand === 'string' && parsed.agentCommand.trim()
+            ? { agentCommand: parsed.agentCommand.trim() }
+            : {}),
+        ...(typeof parsed.concurrency === 'number' && parsed.concurrency > 0
+            ? { concurrency: Math.floor(parsed.concurrency) }
+            : {}),
+        ...(typeof parsed.maxRetries === 'number' && parsed.maxRetries >= 0
+            ? { maxRetries: Math.floor(parsed.maxRetries) }
+            : {}),
+        ...(typeof parsed.verifyRuns === 'number' && parsed.verifyRuns > 0
+            ? { verifyRuns: Math.floor(parsed.verifyRuns) }
+            : {}),
     };
+}
+export function readPlanFromDisk(repoRoot) {
+    const fullPath = path.join(repoRoot, PLAN_REL_PATH);
+    if (!fs.existsSync(fullPath)) {
+        throw new Error(`Missing ${PLAN_REL_PATH}. Run "bastion plan --init" first.`);
+    }
+    const parsed = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+    if (!parsed || !Array.isArray(parsed.nodes) || parsed.nodes.length === 0) {
+        throw new Error(`Invalid ${PLAN_REL_PATH}: "nodes" must be a non-empty array.`);
+    }
+    return { version: 1, nodes: parsed.nodes };
+}
+export function writePlanToDisk(repoRoot, plan) {
+    const dir = path.join(repoRoot, BASTION_DIR);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(repoRoot, PLAN_REL_PATH), JSON.stringify(plan, null, 2) + '\n', 'utf8');
 }
 function parseLockJson(raw, label) {
     const parsed = JSON.parse(raw);

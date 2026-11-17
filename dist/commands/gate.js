@@ -55,9 +55,10 @@ export function runGate(opts) {
         return 1;
     }
     // 3. Execute the baseline test command directly and inspect real exit code
+    const cmdToRun = opts.testCommandOverride ?? baseConfig.testCommand;
     console.log(`[bastion] Integrity OK against ${baseRef} (${resolvedBase.slice(0, 8)}).`);
-    console.log(`[bastion] Running baseline testCommand: ${baseConfig.testCommand}`);
-    const run = runTestCommand(baseConfig.testCommand, repoRoot);
+    console.log(`[bastion] Running baseline testCommand: ${cmdToRun}`);
+    const run = runTestCommand(cmdToRun, repoRoot);
     if (run.stdout.trim())
         process.stdout.write(run.stdout + (run.stdout.endsWith('\n') ? '' : '\n'));
     if (run.stderr.trim())

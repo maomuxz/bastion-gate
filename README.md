@@ -1,37 +1,61 @@
 # Bastion (`bastion-gate`)
 
-**Stop AI coding agents from cheating on tests to make CI green.**
+**Harness-agnostic multi-agent parallel development engine + hard test gate.**
 
-> Your AI agent couldn't fix the bug, so it weakened the assertion, edited `conftest.py`, or changed the test command to `exit 0`.  
-> **Bastion** locks your failing acceptance tests *before* coding starts, verifies every PR against the **baseline branch's** config & locked files in CI, and refuses to lock tautological tests that already pass.
+> Like a fortress (*Bastion*): inside the walls, multiple AI agents work in parallel inside isolated git worktrees by dependency waves; at every exit gate, immutable red-first test locks and baseline CI checks stop agents from cheating on tests before anything merges to `main`.
 
-- Works with **Claude Code, Cursor, Codex, Antigravity**, or any agent harness
-- **Zero runtime dependencies** (`Node.js >= 18`), no multi-model setup required
-- Built with Claude & Antigravity, and **dogfooded by Bastion itself**
+- **Works with any AI CLI or model**: plug in `claude -p`, `codex exec`, Gemini/Antigravity, or any script via `agentCommand` — no vendor lock-in, no multi-model requirement
+- **DAG Wave Orchestration (`plan` + `run`)**: topological waves, parallel `git worktree` isolation, concurrency throttling, automatic gate-feedback retry loops, and N-pass post-merge verification
+- **Unbreakable Test Gate (`lock` + `gate` + `mutate`)**: red-first test locking, baseline-ref config enforcement, lightweight mutation spot-checks, and `audit` for local-only repos
+- **Zero runtime dependencies** (`Node.js >= 18`), built with Claude & Antigravity, and **dogfooded by Bastion itself**
 
 ---
 
-## Core Principles
+## Architecture
 
-1. **Local warns, CI enforces**: Local receipts or Git hooks can be bypassed (`--no-verify`, fast-forward). Real enforcement comes from **branch protection + CI re-running `bastion gate`** against the baseline branch. For local-only repos without CI, run `bastion audit` to inspect merge history.
-2. **Red-first lock**: `bastion lock` runs your test suite on the baseline and **refuses to lock if tests already pass** (blocking tautological/placeholder tests).
-3. **Baseline config enforcement**: `bastion gate` reads `.bastion/config.json` and `.bastion/lock.json` directly from the **baseline ref** (`git show`), so a PR branch cannot weaken `testCommand` or locked globs.
+```
+  [ .bastion/plan.json ] ──▶ Topological Waves (Wave 1, Wave 2, ...)
+                                   │
+          ┌────────────────────────┴────────────────────────┐
+          ▼                                                 ▼
+   worktree: bastion/node-a                         worktree: bastion/node-b
+   1. Agent runs in isolation                       1. Agent runs in isolation
+   2. `bastion gate` vs baseline                    2. `bastion gate` vs baseline
+      └─ cheat/fail? feed back & retry                 └─ pass!
+          │                                                 │
+          └────────────────────────┬────────────────────────┘
+                                   ▼
+                     Merge (--no-ff) -> Verify Nx
+```
 
 ## Quick Start
 
+### 1. Single-repo Hard Gate (Stop agents from modifying tests)
+
 ```bash
-# 1. Initialize Bastion config, AGENTS.md, SKILL.md, and GitHub Action workflow
+# Initialize config, AGENTS.md, SKILL.md, and GitHub Action workflow
 npx bastion-gate init --base main
 
-# 2. Write failing acceptance tests, commit them + .bastion/config.json to main
+# Write failing acceptance tests, commit them + .bastion/config.json to main
 git add . && git commit -m "test: add failing acceptance tests"
 
-# 3. Verify tests are RED on baseline and lock them (+ print plain-language test names)
+# Verify tests are RED on baseline and lock them (+ print plain-language test names)
 npx bastion-gate lock
 git add .bastion/lock.json && git commit -m "chore: lock baseline tests"
 
-# 4. Agents implement features on a branch, then verify through the gate
+# On any feature branch or CI PR, verify locked scope & run baseline testCommand
 npx bastion-gate gate --base main
+```
+
+### 2. Multi-Agent Parallel Swarm (`plan` + `run`)
+
+```bash
+# Create a dependency-ordered task map (.bastion/plan.json)
+npx bastion-gate plan --init
+npx bastion-gate plan
+
+# Run parallel agents in isolated git worktrees with hard-gate enforcement
+npx bastion-gate run --agent 'claude -p "{prompt}" --permission-mode acceptEdits' --concurrency 3 --verify-runs 3
 ```
 
 ## Commands
@@ -42,6 +66,10 @@ npx bastion-gate gate --base main
   Runs `testCommand` on baseline, rejects green tests, locks git-tracked test files + configs/fixtures (`conftest.py`, `package.json`, `vitest.config.*`, etc.), and prints a plain-language list of locked test names.
 - `bastion gate [--base <ref>]`  
   Reads config and lock from the baseline ref, verifies zero modifications to locked files or `.bastion/`, and executes `testCommand` directly.
+- `bastion plan [--init] [--force]`  
+  Creates or validates `.bastion/plan.json`, computes parallel execution waves, and flags tier-3 tasks awaiting human approval.
+- `bastion run [--base <ref>] [--agent "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>]`  
+  Spawns parallel worktree workers per wave, enforces `gate` with automatic retry feedback, merges verified branches with `--no-ff`, and runs final verification N times.
 - `bastion mutate [--max <n>] [files...]`  
   Lightweight mutation spot-check: injects small mutations into source files, verifies tests catch every mutant, and always restores original files.
 - `bastion audit [--limit <n>]`  
@@ -50,7 +78,7 @@ npx bastion-gate gate --base main
 ## Demo & Self-Test
 
 ```bash
-npm test      # Build + run end-to-end tests
+npm test      # Build + run end-to-end tests (including parallel worktree swarm e2e)
 npm run demo  # Run the interactive 3-scenario demo in a temporary git repo
 ```
 

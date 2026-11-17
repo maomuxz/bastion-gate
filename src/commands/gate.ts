@@ -16,6 +16,8 @@ import { matchesAnyGlob, runTestCommand } from '../runner.js';
 export interface GateOptions {
   cwd: string;
   baseRef?: string;
+  /** Optional node-scoped testCommand supplied by the orchestrator from baseline plan. */
+  testCommandOverride?: string;
 }
 
 export function runGate(opts: GateOptions): number {
@@ -77,9 +79,10 @@ export function runGate(opts: GateOptions): number {
   }
 
   // 3. Execute the baseline test command directly and inspect real exit code
+  const cmdToRun = opts.testCommandOverride ?? baseConfig.testCommand;
   console.log(`[bastion] Integrity OK against ${baseRef} (${resolvedBase.slice(0, 8)}).`);
-  console.log(`[bastion] Running baseline testCommand: ${baseConfig.testCommand}`);
-  const run = runTestCommand(baseConfig.testCommand, repoRoot);
+  console.log(`[bastion] Running baseline testCommand: ${cmdToRun}`);
+  const run = runTestCommand(cmdToRun, repoRoot);
 
   if (run.stdout.trim()) process.stdout.write(run.stdout + (run.stdout.endsWith('\n') ? '' : '\n'));
   if (run.stderr.trim()) process.stderr.write(run.stderr + (run.stderr.endsWith('\n') ? '' : '\n'));

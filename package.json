@@ -1,7 +1,7 @@
 {
   "name": "bastion-gate",
-  "version": "0.2.0",
-  "description": "Test-locking & hard-gate CLI for AI coding agents. Red-first lock, baseline config enforcement, CI-verified gate.",
+  "version": "0.3.0",
+  "description": "Multi-agent parallel development & hard-gate CLI for AI coding agents. DAG waves, worktree isolation, red-first lock, baseline CI gate.",
   "author": "mmxz",
   "repository": {
     "type": "git",
@@ -33,6 +33,9 @@
   },
   "keywords": [
     "ai-agent",
+    "multi-agent",
+    "swarm",
+    "worktree",
     "testing",
     "tdd",
     "ci",

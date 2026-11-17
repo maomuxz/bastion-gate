@@ -5,20 +5,24 @@ import { runGate } from './commands/gate.js';
 import { runInit } from './commands/init.js';
 import { runLock } from './commands/lock.js';
 import { runMutate } from './commands/mutate.js';
+import { runPlan } from './commands/plan.js';
+import { runSwarm } from './commands/run.js';
 
-const HELP = `bastion (bastion-gate) v0.2.0
-Test-locking & hard-gate CLI for AI coding agents.
+const HELP = `bastion (bastion-gate) v0.3.0
+Multi-agent parallel development & hard-gate CLI for AI coding agents.
 
 Usage:
   bastion init [--test-cmd "<cmd>"] [--base <branch>] [--force]
   bastion lock [--base <ref>] [--amend --reason "<why>"] [--allow-dirty] [files...]
   bastion gate [--base <ref>]
+  bastion plan [--init] [--force]
+  bastion run [--base <ref>] [--agent "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>]
   bastion mutate [--max <n>] [files...]
   bastion audit [--limit <n>]
   bastion --help
 `;
 
-function main(): number {
+async function main(): Promise<number> {
   const argv = process.argv.slice(2);
   const subcommand = argv[0];
 
@@ -85,6 +89,44 @@ function main(): number {
         });
       }
 
+      case 'plan': {
+        const { values } = parseArgs({
+          args: rest,
+          options: {
+            init: { type: 'boolean', default: false },
+            force: { type: 'boolean', default: false },
+          },
+          allowPositionals: false,
+        });
+        return runPlan({
+          cwd,
+          init: values.init,
+          force: values.force,
+        });
+      }
+
+      case 'run': {
+        const { values } = parseArgs({
+          args: rest,
+          options: {
+            base: { type: 'string' },
+            agent: { type: 'string' },
+            concurrency: { type: 'string' },
+            'max-retries': { type: 'string' },
+            'verify-runs': { type: 'string' },
+          },
+          allowPositionals: false,
+        });
+        return await runSwarm({
+          cwd,
+          baseRef: values.base,
+          agentCommand: values.agent,
+          concurrency: values.concurrency ? Number(values.concurrency) : undefined,
+          maxRetries: values['max-retries'] ? Number(values['max-retries']) : undefined,
+          verifyRuns: values['verify-runs'] ? Number(values['verify-runs']) : undefined,
+        });
+      }
+
       case 'mutate': {
         const { values, positionals } = parseArgs({
           args: rest,
@@ -125,4 +167,6 @@ function main(): number {
   }
 }
 
-process.exitCode = main();
+main().then((code) => {
+  process.exitCode = code;
+});

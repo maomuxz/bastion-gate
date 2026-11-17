@@ -2,5 +2,6 @@ node_modules/
 dist-test/
 *.tgz
 .bastion/receipts/
+.bastion/worktrees/
 *.log
 .DS_Store

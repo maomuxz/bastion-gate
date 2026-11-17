@@ -9,6 +9,8 @@ import { runGate } from '../src/commands/gate.js';
 import { runInit } from '../src/commands/init.js';
 import { runLock } from '../src/commands/lock.js';
 import { runMutate } from '../src/commands/mutate.js';
+import { runPlan } from '../src/commands/plan.js';
+import { runSwarm } from '../src/commands/run.js';
 
 const tempDirs: string[] = [];
 
@@ -196,5 +198,90 @@ describe('bastion-gate v0.1 e2e', () => {
     const survivedCode = runMutate({ cwd: repo, files: ['src/guard.mjs'], maxMutations: 5 });
     assert.equal(survivedCode, 1);
     assert.equal(fs.readFileSync(path.join(repo, 'src/guard.mjs'), 'utf8'), originalWithUnused);
+  });
+
+  it('plan & run orchestrate parallel worktree waves, block test-cheat with retry, and verify merged result', async () => {
+    const repo = createTempGitRepo();
+    runInit({ cwd: repo, testCommand: 'node --test tests/*.test.mjs', baseBranch: 'main' });
+
+    writeRepoFile(repo, 'src/a.mjs', 'export function getA() { return 0; }\n');
+    writeRepoFile(repo, 'src/b.mjs', 'export function getB() { return 0; }\n');
+    writeRepoFile(repo, 'src/c.mjs', 'export function getC() { return 0; }\n');
+    writeRepoFile(
+      repo,
+      'tests/a.test.mjs',
+      `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { getA } from '../src/a.mjs';\ntest('a returns 10', () => { assert.equal(getA(), 10); });\n`
+    );
+    writeRepoFile(
+      repo,
+      'tests/b.test.mjs',
+      `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { getB } from '../src/b.mjs';\ntest('b returns 20', () => { assert.equal(getB(), 20); });\n`
+    );
+    writeRepoFile(
+      repo,
+      'tests/c.test.mjs',
+      `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { getC } from '../src/c.mjs';\ntest('c sums a and b', () => { assert.equal(getC(), 30); });\n`
+    );
+
+    // Mock harness-agnostic agent script: node-a cheats on attempt 1, fixes on attempt 2 after gate feedback
+    writeRepoFile(
+      repo,
+      'scripts/mock-agent.mjs',
+      [
+        `import * as fs from 'node:fs';`,
+        `import { execFileSync } from 'node:child_process';`,
+        `const id = process.env.BASTION_NODE_ID;`,
+        `const attempt = Number(process.env.BASTION_ATTEMPT);`,
+        `if (id === 'node-a') {`,
+        `  if (attempt === 1) {`,
+        `    fs.writeFileSync('tests/a.test.mjs', 'import test from "node:test"; test("hack", () => {});\\n');`,
+        `  } else {`,
+        `    execFileSync('git', ['checkout', '--', 'tests/a.test.mjs']);`,
+        `    fs.writeFileSync('src/a.mjs', 'export function getA() { return 10; }\\n');`,
+        `  }`,
+        `} else if (id === 'node-b') {`,
+        `  fs.writeFileSync('src/b.mjs', 'export function getB() { return 20; }\\n');`,
+        `} else if (id === 'node-c') {`,
+        `  fs.writeFileSync('src/c.mjs', "import { getA } from './a.mjs'; import { getB } from './b.mjs'; export function getC() { return getA() + getB(); }\\n");`,
+        `}`,
+      ].join('\n') + '\n'
+    );
+
+    writeRepoFile(
+      repo,
+      '.bastion/plan.json',
+      JSON.stringify(
+        {
+          version: 1,
+          nodes: [
+            { id: 'node-a', title: 'Implement A', prompt: 'Implement A', testCommand: 'node --test tests/a.test.mjs', tier: 1 },
+            { id: 'node-b', title: 'Implement B', prompt: 'Implement B', testCommand: 'node --test tests/b.test.mjs', tier: 1 },
+            { id: 'node-c', title: 'Integrate C', dependsOn: ['node-a', 'node-b'], prompt: 'Integrate C', testCommand: 'node --test tests/c.test.mjs', tier: 1 },
+          ],
+        },
+        null,
+        2
+      )
+    );
+
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'chore: setup parallel swarm baseline'], repo);
+
+    assert.equal(runLock({ cwd: repo }), 0);
+    git(['add', '.bastion/lock.json'], repo);
+    git(['commit', '-m', 'chore: lock baseline tests'], repo);
+
+    assert.equal(runPlan({ cwd: repo }), 0);
+
+    const swarmCode = await runSwarm({
+      cwd: repo,
+      baseRef: 'main',
+      agentCommand: 'node scripts/mock-agent.mjs',
+      concurrency: 2,
+      maxRetries: 2,
+      verifyRuns: 2,
+    });
+    assert.equal(swarmCode, 0);
+    assert.equal(runAudit({ cwd: repo }), 0);
   });
 });

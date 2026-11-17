@@ -1,0 +1,40 @@
+{
+  "name": "bastion-gate",
+  "version": "0.1.0",
+  "description": "Test-locking & hard-gate CLI for AI coding agents. Red-first lock, baseline config enforcement, CI-verified gate.",
+  "type": "module",
+  "bin": {
+    "bastion": "./dist/cli.js",
+    "bastion-gate": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "action.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:test": "tsc -p tsconfig.test.json",
+    "test": "npm run build && npm run build:test && node --test dist-test/tests/*.test.js",
+    "demo": "npm run build:test && node dist-test/demo/run-demo.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "ai-agent",
+    "testing",
+    "tdd",
+    "ci",
+    "gate",
+    "claude-code",
+    "cursor",
+    "codex"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

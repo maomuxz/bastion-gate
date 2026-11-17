@@ -1,0 +1,10 @@
+name: 'Bastion Gate'
+description: 'Verify locked tests/configs were not altered and run the baseline test command.'
+inputs:
+  base:
+    description: 'Baseline git ref to verify against (defaults to origin/${{ github.base_ref }} or config.baseBranch)'
+    required: false
+    default: ''
+runs:
+  using: 'node20'
+  main: 'dist/action.js'

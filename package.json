@@ -1,7 +1,16 @@
 {
   "name": "bastion-gate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Test-locking & hard-gate CLI for AI coding agents. Red-first lock, baseline config enforcement, CI-verified gate.",
+  "author": "mmxz",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maomuxz/bastion-gate.git"
+  },
+  "homepage": "https://github.com/maomuxz/bastion-gate#readme",
+  "bugs": {
+    "url": "https://github.com/maomuxz/bastion-gate/issues"
+  },
   "type": "module",
   "bin": {
     "bastion": "./dist/cli.js",

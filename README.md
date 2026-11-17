@@ -1,7 +1,15 @@
 # Bastion (`bastion-gate`)
 
-**Test-locking & hard-gate CLI for AI coding agents.**  
-Works with Claude Code, Cursor, Codex, Antigravity, or any agent harness — zero runtime dependencies, no multi-model requirement.
+**Stop AI coding agents from cheating on tests to make CI green.**
+
+> Your AI agent couldn't fix the bug, so it weakened the assertion, edited `conftest.py`, or changed the test command to `exit 0`.  
+> **Bastion** locks your failing acceptance tests *before* coding starts, verifies every PR against the **baseline branch's** config & locked files in CI, and refuses to lock tautological tests that already pass.
+
+- Works with **Claude Code, Cursor, Codex, Antigravity**, or any agent harness
+- **Zero runtime dependencies** (`Node.js >= 18`), no multi-model setup required
+- Built with Claude & Antigravity, and **dogfooded by Bastion itself**
+
+---
 
 ## Core Principles
 
@@ -13,7 +21,7 @@ Works with Claude Code, Cursor, Codex, Antigravity, or any agent harness — zer
 
 ```bash
 # 1. Initialize Bastion config, AGENTS.md, SKILL.md, and GitHub Action workflow
-npx bastion-gate init --test-cmd "npm test" --base main
+npx bastion-gate init --base main
 
 # 2. Write failing acceptance tests, commit them + .bastion/config.json to main
 git add . && git commit -m "test: add failing acceptance tests"
@@ -42,8 +50,8 @@ npx bastion-gate gate --base main
 ## Demo & Self-Test
 
 ```bash
-npm test   # Build + run end-to-end tests
-npm run demo  # Run the 2-scenario interactive demo in a temp git repo
+npm test      # Build + run end-to-end tests
+npm run demo  # Run the interactive 3-scenario demo in a temporary git repo
 ```
 
 ## License

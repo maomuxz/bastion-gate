@@ -40,18 +40,18 @@ npx bastion-gate plan
 git add .bastion/plan.json && git commit -m "chore: add execution plan"
 
 # 2. Run parallel worktree workers (use {promptFile} or $BASTION_PROMPT for cross-platform safety)
-npx bastion-gate run --setup "npm ci" --agent "claude -p \"\$(cat {promptFile})\"" --concurrency 2 --verify-runs 3
+npx bastion-gate run --setup "npm ci" --agent "claude -p < {promptFile}" --concurrency 2 --verify-runs 3
 ```
 
 ### Supported Agent Examples (`--agent`)
 
 | Agent CLI | Recommended `--agent` command |
 |---|---|
-| **Claude Code** | `claude -p --dangerously-skip-permissions < {promptFile}` |
+| **Claude Code** | `claude -p < {promptFile}` *(add `--permission-mode acceptEdits` or `--dangerously-skip-permissions` if non-interactive)* |
 | **Codex CLI** | `codex exec - < {promptFile}` |
 | **Node / Custom Script** | `node scripts/my-agent.mjs` (reads `BASTION_PROMPT` or `BASTION_PROMPT_FILE`) |
 
-*(Avoid embedding `{prompt}` directly in shell strings if your prompts/errors contain quotes, newlines, or `$` characters; prefer `{promptFile}` or `BASTION_PROMPT`.)*
+> **Security & Shell Note**: Running agents non-interactively with `--dangerously-skip-permissions` grants full shell/file execution inside the worktree — run it in a container, VM, or disposable environment. Avoid embedding `{prompt}` directly in shell strings; prefer `< {promptFile}` or `BASTION_PROMPT_FILE`.
 
 ### `.bastion/plan.json` Schema
 

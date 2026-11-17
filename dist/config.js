@@ -26,7 +26,7 @@ export function createDefaultConfig(overrides) {
         version: 1,
         testCommand: overrides?.testCommand ?? 'npm test',
         baseBranch: overrides?.baseBranch ?? 'main',
-        lockedGlobs: overrides?.lockedGlobs ?? ['tests/**', 'test/**', '**/*.test.*', '**/*.spec.*', '**/*_test.*'],
+        lockedGlobs: overrides?.lockedGlobs ?? ['tests/**', 'test/**', '**/*.test.*', '**/*.spec.*', '**/*_test.*', '**/test_*.*'],
         extraLockedPaths: overrides?.extraLockedPaths ?? DEFAULT_EXTRA_LOCKED_PATHS,
     };
 }
@@ -79,6 +79,9 @@ function parseConfigJson(raw, label) {
         baseBranch: typeof parsed.baseBranch === 'string' && parsed.baseBranch.trim() ? parsed.baseBranch.trim() : 'main',
         lockedGlobs: Array.isArray(parsed.lockedGlobs) ? parsed.lockedGlobs.map(toPosixPath) : [],
         extraLockedPaths: Array.isArray(parsed.extraLockedPaths) ? parsed.extraLockedPaths.map(toPosixPath) : [],
+        ...(typeof parsed.setupCommand === 'string' && parsed.setupCommand.trim()
+            ? { setupCommand: parsed.setupCommand.trim() }
+            : {}),
         ...(typeof parsed.agentCommand === 'string' && parsed.agentCommand.trim()
             ? { agentCommand: parsed.agentCommand.trim() }
             : {}),
@@ -90,6 +93,9 @@ function parseConfigJson(raw, label) {
             : {}),
         ...(typeof parsed.verifyRuns === 'number' && parsed.verifyRuns > 0
             ? { verifyRuns: Math.floor(parsed.verifyRuns) }
+            : {}),
+        ...(typeof parsed.timeoutMinutes === 'number' && parsed.timeoutMinutes > 0
+            ? { timeoutMinutes: parsed.timeoutMinutes }
             : {}),
     };
 }

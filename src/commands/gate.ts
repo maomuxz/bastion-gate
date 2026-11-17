@@ -11,7 +11,7 @@ import {
   getRepoRoot,
   resolveRef,
 } from '../git.js';
-import { matchesAnyGlob, runTestCommand } from '../runner.js';
+import { matchesAnyGlob, runTestCommand, runTestCommandAsync } from '../runner.js';
 
 export interface GateOptions {
   cwd: string;
@@ -20,14 +20,28 @@ export interface GateOptions {
   testCommandOverride?: string;
 }
 
-export function runGate(opts: GateOptions): number {
+export interface GateResult {
+  exitCode: number;
+  feedback: string;
+}
+
+function checkGateIntegrity(opts: GateOptions): {
+  ok: false;
+  feedback: string;
+} | {
+  ok: true;
+  repoRoot: string;
+  baseRef: string;
+  resolvedBase: string;
+  cmdToRun: string;
+} {
   const repoRoot = getRepoRoot(opts.cwd);
   if (!repoRoot) {
-    console.error('[bastion] Error: not inside a git repository.');
-    return 1;
+    const msg = '[bastion] Error: not inside a git repository.';
+    console.error(msg);
+    return { ok: false, feedback: msg };
   }
 
-  // Determine baseline ref (explicit --base > GITHUB_BASE_REF > config.baseBranch)
   let baseRef = opts.baseRef;
   if (!baseRef && process.env.GITHUB_BASE_REF) {
     baseRef = `origin/${process.env.GITHUB_BASE_REF}`;
@@ -39,11 +53,11 @@ export function runGate(opts: GateOptions): number {
 
   const resolvedBase = resolveRef(baseRef, repoRoot);
   if (!resolvedBase) {
-    console.error(`[bastion] GATE FAIL: cannot resolve baseline ref "${baseRef}".`);
-    return 1;
+    const msg = `[bastion] GATE FAIL: cannot resolve baseline ref "${baseRef}".`;
+    console.error(msg);
+    return { ok: false, feedback: msg };
   }
 
-  // Read config & lock strictly from the BASELINE ref (never trust PR branch edits to config)
   const baseConfig = readConfigFromRef(resolvedBase, repoRoot);
   const baseLock = readLockFromRef(resolvedBase, repoRoot);
 
@@ -51,7 +65,6 @@ export function runGate(opts: GateOptions): number {
   const patterns = [...baseConfig.lockedGlobs, ...baseConfig.extraLockedPaths];
   const violations: string[] = [];
 
-  // 1. Check committed changes between baseline ref and HEAD
   const changedCommits = getChangedFilesBetween(resolvedBase, 'HEAD', repoRoot);
   for (const rel of changedCommits) {
     if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH) {
@@ -61,7 +74,6 @@ export function runGate(opts: GateOptions): number {
     }
   }
 
-  // 2. Check uncommitted working tree changes
   const dirtyFiles = getDirtyFiles(repoRoot);
   for (const rel of dirtyFiles) {
     if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH) {
@@ -72,17 +84,37 @@ export function runGate(opts: GateOptions): number {
   }
 
   if (violations.length > 0) {
-    console.error('[bastion] GATE FAIL: locked scope integrity violation(s):');
-    for (const v of violations) console.error(`  - ${v}`);
-    console.error('\nIf a locked test genuinely has a defect, a human must confirm and amend the lock on the baseline.');
-    return 1;
+    const lines = [
+      '[bastion] GATE FAIL: locked scope integrity violation(s):',
+      ...violations.map((v) => `  - ${v}`),
+      '',
+      'If a locked test genuinely has a defect, a human must confirm and amend the lock on the baseline.',
+    ];
+    console.error(lines.join('\n'));
+    return { ok: false, feedback: lines.join('\n') };
   }
 
-  // 3. Execute the baseline test command directly and inspect real exit code
-  const cmdToRun = opts.testCommandOverride ?? baseConfig.testCommand;
-  console.log(`[bastion] Integrity OK against ${baseRef} (${resolvedBase.slice(0, 8)}).`);
-  console.log(`[bastion] Running baseline testCommand: ${cmdToRun}`);
-  const run = runTestCommand(cmdToRun, repoRoot);
+  return {
+    ok: true,
+    repoRoot,
+    baseRef,
+    resolvedBase,
+    cmdToRun: opts.testCommandOverride ?? baseConfig.testCommand,
+  };
+}
+
+function tailLines(text: string, maxLines = 40): string {
+  const lines = text.trimEnd().split(/\r?\n/);
+  return lines.slice(-maxLines).join('\n');
+}
+
+export function runGate(opts: GateOptions): number {
+  const check = checkGateIntegrity(opts);
+  if (!check.ok) return 1;
+
+  console.log(`[bastion] Integrity OK against ${check.baseRef} (${check.resolvedBase.slice(0, 8)}).`);
+  console.log(`[bastion] Running baseline testCommand: ${check.cmdToRun}`);
+  const run = runTestCommand(check.cmdToRun, check.repoRoot);
 
   if (run.stdout.trim()) process.stdout.write(run.stdout + (run.stdout.endsWith('\n') ? '' : '\n'));
   if (run.stderr.trim()) process.stderr.write(run.stderr + (run.stderr.endsWith('\n') ? '' : '\n'));
@@ -94,4 +126,27 @@ export function runGate(opts: GateOptions): number {
 
   console.log(`\n[bastion] GATE PASS: all checks passed in ${run.durationMs}ms.`);
   return 0;
+}
+
+/** Async gate runner for parallel worktrees, returning detailed test failure output for retry feedback. */
+export async function runGateAsync(opts: GateOptions): Promise<GateResult> {
+  const check = checkGateIntegrity(opts);
+  if (!check.ok) return { exitCode: 1, feedback: check.feedback };
+
+  console.log(`[bastion] Integrity OK against ${check.baseRef} (${check.resolvedBase.slice(0, 8)}).`);
+  console.log(`[bastion] Running baseline testCommand: ${check.cmdToRun}`);
+  const run = await runTestCommandAsync(check.cmdToRun, check.repoRoot);
+
+  if (run.stdout.trim()) process.stdout.write(run.stdout + (run.stdout.endsWith('\n') ? '' : '\n'));
+  if (run.stderr.trim()) process.stderr.write(run.stderr + (run.stderr.endsWith('\n') ? '' : '\n'));
+
+  if (run.exitCode !== 0) {
+    const combined = `${run.stdout}\n${run.stderr}`.trim();
+    const feedback = `Test command "${check.cmdToRun}" failed (exit ${run.exitCode}):\n${tailLines(combined, 40)}`;
+    console.error(`\n[bastion] GATE FAIL: testCommand exited with code ${run.exitCode} (${run.durationMs}ms).`);
+    return { exitCode: 1, feedback };
+  }
+
+  console.log(`\n[bastion] GATE PASS: all checks passed in ${run.durationMs}ms.`);
+  return { exitCode: 0, feedback: '' };
 }

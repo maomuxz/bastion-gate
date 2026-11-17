@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { CONFIG_REL_PATH, createDefaultConfig, writeConfigToDisk, } from '../config.js';
-import { getRepoRoot } from '../git.js';
+import { execGit, getRepoRoot } from '../git.js';
 const AGENTS_SNIPPET = `
 <!-- bastion-gate:start -->
 ## Test Gate (Bastion)
@@ -57,6 +57,23 @@ function detectTestCommand(repoRoot) {
     }
     return 'npm test';
 }
+function detectBaseBranch(repoRoot) {
+    const res = execGit(['symbolic-ref', '--short', 'HEAD'], repoRoot);
+    if (res.ok && res.stdout.trim())
+        return res.stdout.trim();
+    return 'main';
+}
+function ensureGitignoreEntries(repoRoot) {
+    const gitignorePath = path.join(repoRoot, '.gitignore');
+    const entries = ['.bastion/worktrees/', '.bastion/logs/', '.bastion/receipts/'];
+    const existing = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf8') : '';
+    const missing = entries.filter((e) => !existing.includes(e));
+    if (missing.length === 0)
+        return;
+    const prefix = existing && !existing.endsWith('\n') ? '\n' : '';
+    fs.writeFileSync(gitignorePath, existing + prefix + missing.join('\n') + '\n', 'utf8');
+    console.log(`[bastion] Updated .gitignore (${missing.join(', ')})`);
+}
 export function runInit(opts) {
     const repoRoot = getRepoRoot(opts.cwd) ?? path.resolve(opts.cwd);
     const configPath = path.join(repoRoot, CONFIG_REL_PATH);
@@ -66,11 +83,12 @@ export function runInit(opts) {
     else {
         const config = createDefaultConfig({
             testCommand: opts.testCommand ?? detectTestCommand(repoRoot),
-            baseBranch: opts.baseBranch,
+            baseBranch: opts.baseBranch ?? detectBaseBranch(repoRoot),
         });
         writeConfigToDisk(repoRoot, config);
         console.log(`[bastion] Created ${CONFIG_REL_PATH}`);
     }
+    ensureGitignoreEntries(repoRoot);
     // Write or append AGENTS.md
     const agentsPath = path.join(repoRoot, 'AGENTS.md');
     if (!fs.existsSync(agentsPath)) {

@@ -15,7 +15,7 @@ Usage:
   bastion lock [--base <ref>] [--amend --reason "<why>"] [--allow-dirty] [files...]
   bastion gate [--base <ref>]
   bastion plan [--init] [--force]
-  bastion run [--base <ref>] [--agent "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>]
+  bastion run [--base <ref>] [--agent "<cmd>"] [--setup "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>] [--timeout <min>]
   bastion mutate [--max <n>] [files...]
   bastion audit [--limit <n>]
   bastion --help
@@ -102,9 +102,11 @@ async function main() {
                     options: {
                         base: { type: 'string' },
                         agent: { type: 'string' },
+                        setup: { type: 'string' },
                         concurrency: { type: 'string' },
                         'max-retries': { type: 'string' },
                         'verify-runs': { type: 'string' },
+                        timeout: { type: 'string' },
                     },
                     allowPositionals: false,
                 });
@@ -112,9 +114,11 @@ async function main() {
                     cwd,
                     baseRef: values.base,
                     agentCommand: values.agent,
+                    setupCommand: values.setup,
                     concurrency: values.concurrency ? Number(values.concurrency) : undefined,
                     maxRetries: values['max-retries'] ? Number(values['max-retries']) : undefined,
                     verifyRuns: values['verify-runs'] ? Number(values['verify-runs']) : undefined,
+                    timeoutMinutes: values.timeout ? Number(values.timeout) : undefined,
                 });
             }
             case 'mutate': {

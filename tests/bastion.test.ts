@@ -53,6 +53,9 @@ describe('bastion-gate v0.1 e2e', () => {
     assert.ok(fs.existsSync(path.join(repo, 'AGENTS.md')));
     assert.ok(fs.existsSync(path.join(repo, '.agents', 'skills', 'bastion-gate', 'SKILL.md')));
     assert.ok(fs.existsSync(path.join(repo, '.github', 'workflows', 'bastion.yml')));
+    const gitignore = fs.readFileSync(path.join(repo, '.gitignore'), 'utf8');
+    assert.ok(gitignore.includes('.bastion/worktrees/'));
+    assert.ok(gitignore.includes('.bastion/logs/'));
   });
 
   it('lock rejects tautological green tests on baseline (red-first enforcement)', () => {
@@ -223,7 +226,7 @@ describe('bastion-gate v0.1 e2e', () => {
       `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { getC } from '../src/c.mjs';\ntest('c sums a and b', () => { assert.equal(getC(), 30); });\n`
     );
 
-    // Mock harness-agnostic agent script: node-a cheats on attempt 1, fixes on attempt 2 after gate feedback
+    // Mock harness-agnostic agent script: node-a cheats on attempt 1, verifies feedback + promptFile on attempt 2
     writeRepoFile(
       repo,
       'scripts/mock-agent.mjs',
@@ -232,10 +235,14 @@ describe('bastion-gate v0.1 e2e', () => {
         `import { execFileSync } from 'node:child_process';`,
         `const id = process.env.BASTION_NODE_ID;`,
         `const attempt = Number(process.env.BASTION_ATTEMPT);`,
+        `const promptFile = process.env.BASTION_PROMPT_FILE;`,
+        `if (!promptFile || !fs.existsSync(promptFile)) throw new Error('missing promptFile');`,
         `if (id === 'node-a') {`,
         `  if (attempt === 1) {`,
         `    fs.writeFileSync('tests/a.test.mjs', 'import test from "node:test"; test("hack", () => {});\\n');`,
         `  } else {`,
+        `    const fb = process.env.BASTION_FEEDBACK || '';`,
+        `    if (!fb.includes('tests/a.test.mjs')) throw new Error('missing detailed gate violation feedback');`,
         `    execFileSync('git', ['checkout', '--', 'tests/a.test.mjs']);`,
         `    fs.writeFileSync('src/a.mjs', 'export function getA() { return 10; }\\n');`,
         `  }`,
@@ -283,5 +290,36 @@ describe('bastion-gate v0.1 e2e', () => {
     });
     assert.equal(swarmCode, 0);
     assert.equal(runAudit({ cwd: repo }), 0);
+
+    // Verify runSwarm created an integration branch and left main untouched
+    const currentBranch = git(['rev-parse', '--abbrev-ref', 'HEAD'], repo);
+    assert.ok(currentBranch.startsWith('bastion/run-'));
+    assert.ok(fs.existsSync(path.join(repo, '.bastion', 'logs', 'node-a-attempt-1.log')));
+  });
+
+  it('plan --init generates nodes from locked test files and run aborts fast on setupCommand failure', async () => {
+    const repo = createTempGitRepo();
+    runInit({ cwd: repo, testCommand: 'node --test tests/test_py_style.mjs', baseBranch: 'main' });
+    writeRepoFile(repo, 'tests/test_py_style.mjs', 'import test from "node:test"; import assert from "node:assert/strict"; test("fail", () => { assert.equal(1, 2); });\n');
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'test: py style'], repo);
+    assert.equal(runLock({ cwd: repo }), 0);
+    assert.equal(runPlan({ cwd: repo, init: true }), 0);
+
+    const plan = JSON.parse(fs.readFileSync(path.join(repo, '.bastion', 'plan.json'), 'utf8'));
+    assert.equal(plan.nodes.length, 1);
+    assert.equal(plan.nodes[0].id, 'test_py_style');
+
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'chore: lock and plan'], repo);
+
+    // Failing setupCommand must abort immediately without running agent
+    const failCode = await runSwarm({
+      cwd: repo,
+      baseRef: 'main',
+      setupCommand: 'node -e "process.exit(1)"',
+      agentCommand: 'node -e "throw new Error(\'should not run\')"',
+    });
+    assert.equal(failCode, 1);
   });
 });

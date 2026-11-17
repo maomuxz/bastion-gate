@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -29,6 +29,46 @@ export function runTestCommand(command: string, cwd: string): CommandRunResult {
     stderr: res.stderr ?? '',
     durationMs: Date.now() - start,
   };
+}
+
+/** Async version of runTestCommand so parallel worktrees do not block the event loop. */
+export function runTestCommandAsync(command: string, cwd: string, timeoutMs?: number): Promise<CommandRunResult> {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const env = { ...process.env };
+    delete env.NODE_TEST_CONTEXT;
+
+    const child = spawn(command, {
+      cwd,
+      env,
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let timedOut = false;
+
+    const timer = timeoutMs && timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          child.kill();
+        }, timeoutMs)
+      : null;
+
+    child.stdout?.on('data', (d) => { stdout += String(d); });
+    child.stderr?.on('data', (d) => { stderr += String(d); });
+    child.on('close', (code) => {
+      if (timer) clearTimeout(timer);
+      if (timedOut) stderr += `\n[bastion] Command timed out after ${timeoutMs}ms.`;
+      resolve({
+        exitCode: timedOut ? 124 : (code ?? 1),
+        stdout,
+        stderr,
+        durationMs: Date.now() - start,
+      });
+    });
+  });
 }
 
 /** Compute SHA-256 hex digest of a file on disk. */

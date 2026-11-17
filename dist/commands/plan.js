@@ -1,32 +1,56 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { PLAN_REL_PATH, readPlanFromDisk, writePlanToDisk, } from '../config.js';
+import { LOCK_REL_PATH, PLAN_REL_PATH, readConfigFromDisk, readLockFromDisk, readPlanFromDisk, writePlanToDisk, } from '../config.js';
 import { getRepoRoot } from '../git.js';
 import { buildExecutionWaves } from '../orchestrator/dag.js';
-const SAMPLE_PLAN = {
+import { matchesAnyGlob } from '../runner.js';
+const FALLBACK_PLAN = {
     version: 1,
     nodes: [
         {
-            id: 'auth',
-            title: 'Implement auth module',
-            prompt: 'Implement src/auth to pass tests/auth.test without modifying locked tests.',
+            id: 'task-1',
+            title: 'Implement module 1',
+            prompt: 'Implement module 1 without modifying locked tests.',
             tier: 1,
         },
         {
-            id: 'billing',
-            title: 'Implement billing module',
-            prompt: 'Implement src/billing to pass tests/billing.test without modifying locked tests.',
+            id: 'task-2',
+            title: 'Implement module 2',
+            prompt: 'Implement module 2 without modifying locked tests.',
             tier: 1,
         },
         {
-            id: 'checkout',
-            title: 'Wire auth + billing in checkout',
-            dependsOn: ['auth', 'billing'],
-            prompt: 'Integrate auth and billing in src/checkout to pass tests/checkout.test.',
+            id: 'integrate',
+            title: 'Integrate modules',
+            dependsOn: ['task-1', 'task-2'],
+            prompt: 'Wire module 1 and module 2 together and pass all tests.',
             tier: 2,
         },
     ],
 };
+function buildDraftPlanFromLock(repoRoot) {
+    const lockPath = path.join(repoRoot, LOCK_REL_PATH);
+    if (!fs.existsSync(lockPath))
+        return null;
+    const config = readConfigFromDisk(repoRoot);
+    const lock = readLockFromDisk(repoRoot);
+    const testFiles = lock.lockedFiles
+        .map((f) => f.path)
+        .filter((p) => matchesAnyGlob(p, config.lockedGlobs));
+    if (testFiles.length === 0)
+        return null;
+    const nodes = testFiles.map((file, idx) => {
+        const baseName = path.basename(file).replace(/\.[^.]+$/, '');
+        const id = baseName.replace(/[^a-zA-Z0-9_-]+/g, '-').toLowerCase() || `node-${idx + 1}`;
+        return {
+            id,
+            title: `Pass ${file}`,
+            prompt: `Implement the code required to pass ${file} without modifying locked tests or .bastion/.`,
+            tier: 1,
+        };
+    });
+    return { version: 1, nodes };
+}
 export function runPlan(opts) {
     const repoRoot = getRepoRoot(opts.cwd) ?? path.resolve(opts.cwd);
     const planPath = path.join(repoRoot, PLAN_REL_PATH);
@@ -35,8 +59,9 @@ export function runPlan(opts) {
             console.log(`[bastion] ${PLAN_REL_PATH} already exists (use --force to overwrite).`);
         }
         else {
-            writePlanToDisk(repoRoot, SAMPLE_PLAN);
-            console.log(`[bastion] Created ${PLAN_REL_PATH}`);
+            const draft = buildDraftPlanFromLock(repoRoot) ?? FALLBACK_PLAN;
+            writePlanToDisk(repoRoot, draft);
+            console.log(`[bastion] Created ${PLAN_REL_PATH} (${draft.nodes.length} node(s)).`);
         }
         return 0;
     }

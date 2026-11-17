@@ -1,5 +1,7 @@
 # Bastion (`bastion-gate`)
 
+**English** | [简体中文](README.zh-CN.md)
+
 **Red-first test gate & multi-agent parallel orchestrator for AI coding agents.**
 
 > Like a fortress (*Bastion*): the outer wall locks your failing acceptance tests *before* coding starts and verifies every branch against the **baseline branch's** config in CI; inside the walls, multiple AI agents can work in parallel in isolated git worktrees by dependency waves.

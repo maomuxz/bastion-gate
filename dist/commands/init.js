@@ -65,7 +65,7 @@ function detectBaseBranch(repoRoot) {
 }
 function ensureGitignoreEntries(repoRoot) {
     const gitignorePath = path.join(repoRoot, '.gitignore');
-    const entries = ['.bastion/worktrees/', '.bastion/logs/', '.bastion/receipts/'];
+    const entries = ['.bastion/worktrees/', '.bastion/logs/', '.bastion/receipts/', '.bastion/run-state.json'];
     const existing = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf8') : '';
     const missing = entries.filter((e) => !existing.includes(e));
     if (missing.length === 0)

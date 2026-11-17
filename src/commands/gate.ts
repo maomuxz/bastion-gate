@@ -1,6 +1,7 @@
 import {
   CONFIG_REL_PATH,
   LOCK_REL_PATH,
+  PLAN_REL_PATH,
   readConfigFromDisk,
   readConfigFromRef,
   readLockFromRef,
@@ -67,7 +68,7 @@ function checkGateIntegrity(opts: GateOptions): {
 
   const changedCommits = getChangedFilesBetween(resolvedBase, 'HEAD', repoRoot);
   for (const rel of changedCommits) {
-    if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH) {
+    if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH || rel === PLAN_REL_PATH) {
       violations.push(`Baseline bastion file modified in branch: ${rel}`);
     } else if (lockedSet.has(rel) || matchesAnyGlob(rel, patterns)) {
       violations.push(`Locked test/config file modified in branch: ${rel}`);
@@ -76,7 +77,7 @@ function checkGateIntegrity(opts: GateOptions): {
 
   const dirtyFiles = getDirtyFiles(repoRoot);
   for (const rel of dirtyFiles) {
-    if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH) {
+    if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH || rel === PLAN_REL_PATH) {
       violations.push(`Uncommitted modification to bastion file: ${rel}`);
     } else if (lockedSet.has(rel) || matchesAnyGlob(rel, patterns)) {
       violations.push(`Uncommitted modification to locked file: ${rel}`);

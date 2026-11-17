@@ -92,8 +92,8 @@ npx bastion-gate run --setup "npm ci" --agent "claude -p \"\$(cat {promptFile})\
   Reads `.bastion/config.json` and `.bastion/lock.json` from the baseline ref, verifies zero modifications to locked files, and executes `testCommand` directly.
 - `bastion plan [--init] [--force]`  
   Drafts `.bastion/plan.json` from locked test files or validates wave dependencies & tier-3 approvals.
-- `bastion run [--base <ref>] [--agent "<cmd>"] [--setup "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>] [--timeout <min>]`  
-  Spawns parallel worktree workers on a `bastion/run-*` integration branch, enforces `gate` with failure-output feedback retries, and verifies N times after merge.
+- `bastion run [--base <ref>] [--agent "<cmd>"] [--setup "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>] [--timeout <min>] [--resume]`  
+  Spawns parallel worktree workers on a `bastion/run-*` integration branch, enforces `gate` with failure-output feedback retries, skips sensitive files like `.env`, supports `--resume` after wave failures, and verifies N times after merge.
 - `bastion mutate [--max <n>] [files...]`  
   Lightweight mutation spot-check: injects small mutations into source files, verifies tests catch every mutant, and always restores original files.
 - `bastion audit [--limit <n>]`  

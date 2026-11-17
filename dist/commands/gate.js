@@ -1,4 +1,4 @@
-import { CONFIG_REL_PATH, LOCK_REL_PATH, readConfigFromDisk, readConfigFromRef, readLockFromRef, } from '../config.js';
+import { CONFIG_REL_PATH, LOCK_REL_PATH, PLAN_REL_PATH, readConfigFromDisk, readConfigFromRef, readLockFromRef, } from '../config.js';
 import { getChangedFilesBetween, getDirtyFiles, getRepoRoot, resolveRef, } from '../git.js';
 import { matchesAnyGlob, runTestCommand, runTestCommandAsync } from '../runner.js';
 function checkGateIntegrity(opts) {
@@ -29,7 +29,7 @@ function checkGateIntegrity(opts) {
     const violations = [];
     const changedCommits = getChangedFilesBetween(resolvedBase, 'HEAD', repoRoot);
     for (const rel of changedCommits) {
-        if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH) {
+        if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH || rel === PLAN_REL_PATH) {
             violations.push(`Baseline bastion file modified in branch: ${rel}`);
         }
         else if (lockedSet.has(rel) || matchesAnyGlob(rel, patterns)) {
@@ -38,7 +38,7 @@ function checkGateIntegrity(opts) {
     }
     const dirtyFiles = getDirtyFiles(repoRoot);
     for (const rel of dirtyFiles) {
-        if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH) {
+        if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH || rel === PLAN_REL_PATH) {
             violations.push(`Uncommitted modification to bastion file: ${rel}`);
         }
         else if (lockedSet.has(rel) || matchesAnyGlob(rel, patterns)) {

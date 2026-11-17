@@ -26,12 +26,74 @@ export interface RunOptions {
   maxRetries?: number;
   verifyRuns?: number;
   timeoutMinutes?: number;
+  resume?: boolean;
+}
+
+interface RunState {
+  integrationBranch: string;
+  baseRef: string;
+  completedNodes: string[];
 }
 
 interface AgentExecResult {
   exitCode: number;
   output: string;
   timedOut: boolean;
+}
+
+const BLOCKED_COMMIT_PATTERN = /(?:^|\/)(?:\.env(?:\..+)?|\.DS_Store|Thumbs\.db)$|^\.bastion\//;
+
+function readRunState(repoRoot: string): RunState | null {
+  const p = path.join(repoRoot, '.bastion', 'run-state.json');
+  if (!fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8')) as RunState;
+  } catch {
+    return null;
+  }
+}
+
+function writeRunState(repoRoot: string, state: RunState): void {
+  const p = path.join(repoRoot, '.bastion', 'run-state.json');
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(state, null, 2) + '\n', 'utf8');
+}
+
+function stageSafeWorktreeFiles(worktreeDir: string, nodeId: string): boolean {
+  const dirty = getDirtyFiles(worktreeDir);
+  if (dirty.length === 0) return true;
+
+  const allowed: string[] = [];
+  const skipped: string[] = [];
+  for (const rel of dirty) {
+    if (BLOCKED_COMMIT_PATTERN.test(rel)) {
+      skipped.push(rel);
+    } else {
+      allowed.push(rel);
+    }
+  }
+
+  if (skipped.length > 0) {
+    console.warn(`[${nodeId}] Skipping untracked/sensitive files: ${skipped.join(', ')}`);
+  }
+  if (allowed.length === 0) return true;
+
+  console.log(`[${nodeId}] Staging ${allowed.length} file(s): ${allowed.join(', ')}`);
+  const addRes = execGit(['add', '--', ...allowed], worktreeDir);
+  if (!addRes.ok) {
+    console.error(`[${nodeId}] git add failed: ${addRes.stderr}`);
+    return false;
+  }
+
+  const commitRes = execGit(
+    ['-c', 'user.name=bastion', '-c', 'user.email=bastion@local', 'commit', '-m', `feat(${nodeId}): apply verified changes`],
+    worktreeDir
+  );
+  if (!commitRes.ok) {
+    console.error(`[${nodeId}] git commit failed: ${commitRes.stderr}`);
+    return false;
+  }
+  return true;
 }
 
 function runAgentAsync(
@@ -54,7 +116,6 @@ function runAgentAsync(
     fs.mkdirSync(path.dirname(logFile), { recursive: true });
     const logStream = fs.createWriteStream(logFile, { flags: 'w' });
 
-    // Prefer {promptFile} or $BASTION_PROMPT; if user wrote {prompt}, pass via env-safe expansion
     const escapedSingleLine = fullPrompt.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"');
     const cmd = commandTemplate
       .replace(/\{promptFile\}/g, promptFile)
@@ -82,6 +143,7 @@ function runAgentAsync(
     });
 
     let output = '';
+    let lineBuf = '';
     let timedOut = false;
 
     const timer = timeoutMs > 0
@@ -96,12 +158,19 @@ function runAgentAsync(
       const text = String(chunk);
       output += text;
       logStream.write(text);
+      lineBuf += text;
+      const lines = lineBuf.split(/\r?\n/);
+      lineBuf = lines.pop() ?? '';
+      for (const line of lines) {
+        if (line.trim()) console.log(`  [${node.id}] ${line}`);
+      }
     };
 
     child.stdout?.on('data', onChunk);
     child.stderr?.on('data', onChunk);
     child.on('close', (code) => {
       if (timer) clearTimeout(timer);
+      if (lineBuf.trim()) console.log(`  [${node.id}] ${lineBuf}`);
       logStream.end();
       resolve({ exitCode: timedOut ? 124 : (code ?? 1), output, timedOut });
     });
@@ -170,13 +239,32 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
   const verifyRuns = opts.verifyRuns ?? config.verifyRuns ?? 1;
   const timeoutMs = (opts.timeoutMinutes ?? config.timeoutMinutes ?? 20) * 60_000;
 
-  // Create an isolated integration branch so partial wave failures never pollute baseBranch
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const integrationBranch = `bastion/run-${stamp}`;
-  const checkoutRes = execGit(['checkout', '-b', integrationBranch], repoRoot);
-  if (!checkoutRes.ok) {
-    console.error(`[bastion] Error creating integration branch ${integrationBranch}: ${checkoutRes.stderr}`);
-    return 1;
+  let integrationBranch: string;
+  const completedSet = new Set<string>();
+
+  if (opts.resume) {
+    const prev = readRunState(repoRoot);
+    if (!prev) {
+      console.error('[bastion] Error: no .bastion/run-state.json found to resume from.');
+      return 1;
+    }
+    integrationBranch = prev.integrationBranch;
+    for (const id of prev.completedNodes) completedSet.add(id);
+    const checkoutRes = execGit(['checkout', integrationBranch], repoRoot);
+    if (!checkoutRes.ok) {
+      console.error(`[bastion] Error checking out ${integrationBranch}: ${checkoutRes.stderr}`);
+      return 1;
+    }
+    console.log(`[bastion] Resuming "${integrationBranch}" (${completedSet.size} node(s) already completed).`);
+  } else {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    integrationBranch = `bastion/run-${stamp}`;
+    const checkoutRes = execGit(['checkout', '-b', integrationBranch], repoRoot);
+    if (!checkoutRes.ok) {
+      console.error(`[bastion] Error creating integration branch ${integrationBranch}: ${checkoutRes.stderr}`);
+      return 1;
+    }
+    writeRunState(repoRoot, { integrationBranch, baseRef, completedNodes: [] });
   }
 
   const logsDir = path.join(repoRoot, '.bastion', 'logs');
@@ -184,15 +272,20 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
   console.log(`[bastion] Starting parallel swarm (${plan.nodes.length} nodes, ${waves.length} waves, concurrency=${concurrency}, maxRetries=${maxRetries})`);
 
   for (let w = 0; w < waves.length; w++) {
-    const wave = waves[w];
-    console.log(`\n=== Wave ${w + 1}/${waves.length}: [${wave.map((n) => n.id).join(', ')}] ===`);
+    const pendingNodes = waves[w].filter((n) => !completedSet.has(n.id));
+    if (pendingNodes.length === 0) {
+      console.log(`\n=== Wave ${w + 1}/${waves.length}: all nodes already completed, skipping ===`);
+      continue;
+    }
+
+    console.log(`\n=== Wave ${w + 1}/${waves.length}: [${pendingNodes.map((n) => n.id).join(', ')}] ===`);
 
     const currentHead = resolveRef('HEAD', repoRoot)!;
-    const handles: WorktreeHandle[] = wave.map((node) => createNodeWorktree(repoRoot, currentHead, node.id));
+    const handles: WorktreeHandle[] = pendingNodes.map((node) => createNodeWorktree(repoRoot, currentHead, node.id));
 
     try {
       const outcomes = await runWithConcurrency(
-        wave.map((node, i) => ({ node, handle: handles[i] })),
+        pendingNodes.map((node, i) => ({ node, handle: handles[i] })),
         concurrency,
         async ({ node, handle }) => {
           if (setupCmd) {
@@ -236,20 +329,8 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
             });
 
             if (gateRes.exitCode === 0) {
-              if (getDirtyFiles(handle.dir).length > 0) {
-                const addRes = execGit(['add', '-A'], handle.dir);
-                if (!addRes.ok) {
-                  console.error(`[${node.id}] git add failed: ${addRes.stderr}`);
-                  return { ok: false, node, handle };
-                }
-                const commitRes = execGit(
-                  ['-c', 'user.name=bastion', '-c', 'user.email=bastion@local', 'commit', '-m', `feat(${node.id}): ${node.title}`],
-                  handle.dir
-                );
-                if (!commitRes.ok) {
-                  console.error(`[${node.id}] git commit failed: ${commitRes.stderr}`);
-                  return { ok: false, node, handle };
-                }
+              if (!stageSafeWorktreeFiles(handle.dir, node.id)) {
+                return { ok: false, node, handle };
               }
               console.log(`[${node.id}] GATE PASS on attempt ${attempt}.`);
               return { ok: true, node, handle };
@@ -266,13 +347,19 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
       const failed = outcomes.filter((o) => !o.ok);
       if (failed.length > 0) {
         console.error(`\n[bastion] Wave ${w + 1} failed: ${failed.map((f) => f.node.id).join(', ')}`);
-        console.error(`[bastion] Inspect logs under .bastion/logs/. Your original branch "${baseRef}" was not modified.`);
+        console.error(`[bastion] Inspect logs under .bastion/logs/. Fix and resume with: bastion run --resume`);
         return 1;
       }
 
       for (const { node, handle } of outcomes) {
         console.log(`[bastion] Merging ${handle.branch} -> ${integrationBranch}...`);
         mergeNodeBranch(repoRoot, handle, node.title);
+        completedSet.add(node.id);
+        writeRunState(repoRoot, {
+          integrationBranch,
+          baseRef,
+          completedNodes: [...completedSet],
+        });
       }
     } finally {
       for (const handle of handles) {

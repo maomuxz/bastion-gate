@@ -16,7 +16,7 @@ Usage:
   bastion lock [--base <ref>] [--amend --reason "<why>"] [--allow-dirty] [files...]
   bastion gate [--base <ref>]
   bastion plan [--init] [--force]
-  bastion run [--base <ref>] [--agent "<cmd>"] [--setup "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>] [--timeout <min>]
+  bastion run [--base <ref>] [--agent "<cmd>"] [--setup "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>] [--timeout <min>] [--resume]
   bastion mutate [--max <n>] [files...]
   bastion audit [--limit <n>]
   bastion --help
@@ -116,6 +116,7 @@ async function main(): Promise<number> {
             'max-retries': { type: 'string' },
             'verify-runs': { type: 'string' },
             timeout: { type: 'string' },
+            resume: { type: 'boolean', default: false },
           },
           allowPositionals: false,
         });
@@ -128,6 +129,7 @@ async function main(): Promise<number> {
           maxRetries: values['max-retries'] ? Number(values['max-retries']) : undefined,
           verifyRuns: values['verify-runs'] ? Number(values['verify-runs']) : undefined,
           timeoutMinutes: values.timeout ? Number(values.timeout) : undefined,
+          resume: values.resume,
         });
       }
 

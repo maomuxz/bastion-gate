@@ -3,5 +3,7 @@ dist-test/
 *.tgz
 .bastion/receipts/
 .bastion/worktrees/
+.bastion/logs/
+.bastion/run-state.json
 *.log
 .DS_Store

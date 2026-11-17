@@ -322,4 +322,67 @@ describe('bastion-gate v0.1 e2e', () => {
     });
     assert.equal(failCode, 1);
   });
+
+  it('run preserves multiline/quoted prompts via promptFile, skips .env files, and supports --resume', async () => {
+    const repo = createTempGitRepo();
+    runInit({ cwd: repo, testCommand: 'node --test tests/*.test.mjs', baseBranch: 'main' });
+    writeRepoFile(repo, 'src/w1.mjs', 'export const w1 = 0;\n');
+    writeRepoFile(repo, 'src/w2.mjs', 'export const w2 = 0;\n');
+    writeRepoFile(repo, 'tests/w1.test.mjs', 'import test from "node:test"; import assert from "node:assert/strict"; import { w1 } from "../src/w1.mjs"; test("w1", () => { assert.equal(w1, 1); });\n');
+    writeRepoFile(repo, 'tests/w2.test.mjs', 'import test from "node:test"; import assert from "node:assert/strict"; import { w2 } from "../src/w2.mjs"; test("w2", () => { assert.equal(w2, 2); });\n');
+
+    writeRepoFile(
+      repo,
+      'scripts/agent.mjs',
+      [
+        `import * as fs from 'node:fs';`,
+        `const id = process.env.BASTION_NODE_ID;`,
+        `const prompt = fs.readFileSync(process.env.BASTION_PROMPT_FILE, 'utf8');`,
+        `if (id === 'w1') {`,
+        `  if (!prompt.includes('line1\\n"quoted" $safe')) throw new Error('prompt corrupted');`,
+        `  fs.writeFileSync('.env', 'SECRET=123\\n');`,
+        `  fs.writeFileSync('src/w1.mjs', 'export const w1 = 1;\\n');`,
+        `} else if (id === 'w2') {`,
+        `  if (process.env.ALLOW_W2 !== '1') process.exit(1);`,
+        `  fs.writeFileSync('src/w2.mjs', 'export const w2 = 2;\\n');`,
+        `}`,
+      ].join('\n') + '\n'
+    );
+
+    writeRepoFile(
+      repo,
+      '.bastion/plan.json',
+      JSON.stringify(
+        {
+          version: 1,
+          nodes: [
+            { id: 'w1', title: 'Wave 1', prompt: 'line1\n"quoted" $safe', testCommand: 'node --test tests/w1.test.mjs' },
+            { id: 'w2', title: 'Wave 2', dependsOn: ['w1'], prompt: 'w2', testCommand: 'node --test tests/w2.test.mjs' },
+          ],
+        },
+        null,
+        2
+      )
+    );
+
+    git(['add', '.'], repo);
+    git(['commit', '-m', 'chore: resume test setup'], repo);
+    assert.equal(runLock({ cwd: repo }), 0);
+    git(['add', '.bastion/lock.json'], repo);
+    git(['commit', '-m', 'chore: lock'], repo);
+
+    // First run: Wave 1 succeeds, Wave 2 fails
+    process.env.ALLOW_W2 = '0';
+    const firstCode = await runSwarm({ cwd: repo, baseRef: 'main', agentCommand: 'node scripts/agent.mjs', maxRetries: 0 });
+    assert.equal(firstCode, 1);
+
+    // .env created in w1 worktree must NOT be committed to integration branch
+    const tracked = git(['ls-files'], repo);
+    assert.equal(tracked.includes('.env'), false);
+
+    // Resume: Wave 1 is skipped, Wave 2 runs and succeeds
+    process.env.ALLOW_W2 = '1';
+    const resumeCode = await runSwarm({ cwd: repo, baseRef: 'main', agentCommand: 'node scripts/agent.mjs', maxRetries: 0, resume: true });
+    assert.equal(resumeCode, 0);
+  });
 });

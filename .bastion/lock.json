@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "lockedAt": "2026-11-17T10:42:02.600Z",
+  "baseCommit": "3895864da6385daedb06f41a5dc7290daef894f4",
+  "testCommand": "npm test",
+  "redVerified": {
+    "exitCode": 1,
+    "command": "npm test"
+  },
+  "lockedFiles": [
+    {
+      "path": "dist-test/tests/bastion.test.js",
+      "sha256": "e4371b8ff8c6bf05c91bc9209d8127ff2922b2ea4df98fa4e00a9abffd19cdbd"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "89fe060869b0b05b93cb08f09323399bea121b57d909fc37fb5e95fed465249d"
+    },
+    {
+      "path": "package.json",
+      "sha256": "4fc9e3826c9273748370080093989debd6552f4f859f1503e287daeeb4cbdb23"
+    },
+    {
+      "path": "tests/bastion.test.ts",
+      "sha256": "c67ba44b1ff1bd68bcf847de82994c9745496a6f9739f6af3c68d995b0ec6460"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "d64da435854231e695927372ac97842ba360b0b009d3ec8c3a0075c54c80649c"
+    },
+    {
+      "path": "tsconfig.test.json",
+      "sha256": "2a4d193edd621ecc83f33193efa0c84ae33a65b57fd9c706d3cebb4c1a7ca593"
+    }
+  ],
+  "testSummary": [
+    {
+      "file": "dist-test/tests/bastion.test.js",
+      "names": [
+        "bastion-gate v0.1 e2e",
+        "init generates config, AGENTS.md, SKILL.md, and GitHub Action workflow",
+        "lock rejects tautological green tests on baseline (red-first enforcement)",
+        "locks red test, blocks test/config tampering in gate, and passes genuine fix",
+        "init auto-detects testCommand for Python, Go, Rust, and Flutter projects"
+      ]
+    },
+    {
+      "file": "tests/bastion.test.ts",
+      "names": [
+        "bastion-gate v0.1 e2e",
+        "init generates config, AGENTS.md, SKILL.md, and GitHub Action workflow",
+        "lock rejects tautological green tests on baseline (red-first enforcement)",
+        "locks red test, blocks test/config tampering in gate, and passes genuine fix",
+        "init auto-detects testCommand for Python, Go, Rust, and Flutter projects"
+      ]
+    }
+  ]
+}

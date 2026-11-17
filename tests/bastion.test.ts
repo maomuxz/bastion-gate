@@ -125,4 +125,21 @@ describe('bastion-gate v0.1 e2e', () => {
     git(['merge', '--no-ff', 'feat/ai-cheat', '-m', 'Merge feat/ai-cheat'], repo);
     assert.equal(runAudit({ cwd: repo }), 1);
   });
+
+  it('init auto-detects testCommand for Python, Go, Rust, and Flutter projects', () => {
+    const cases: Array<[string, string]> = [
+      ['pyproject.toml', 'pytest'],
+      ['go.mod', 'go test ./...'],
+      ['Cargo.toml', 'cargo test'],
+      ['pubspec.yaml', 'flutter test'],
+    ];
+
+    for (const [markerFile, expectedCmd] of cases) {
+      const repo = createTempGitRepo();
+      writeRepoFile(repo, markerFile, '# marker\n');
+      assert.equal(runInit({ cwd: repo }), 0);
+      const cfg = JSON.parse(fs.readFileSync(path.join(repo, '.bastion', 'config.json'), 'utf8'));
+      assert.equal(cfg.testCommand, expectedCmd, `Expected ${markerFile} -> ${expectedCmd}`);
+    }
+  });
 });

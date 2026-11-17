@@ -187,6 +187,6 @@ const cliRel = path.relative(targetDir, bastionCli).replace(/\\/g, '/');
 console.log(`\n[ready] Benchmark repo created at: ${targetDir}`);
 console.log('Run with a real AI agent (example):');
 console.log(`  cd "${targetDir}"`);
-console.log(`  node "${cliRel}" run --agent "claude -p --permission-mode acceptEdits < {promptFile}" --concurrency 4 --verify-runs 2`);
+console.log(`  node "${cliRel}" run --agent "claude -p --permission-mode acceptEdits --allowedTools \\"Bash(node --test:*)\\" < {promptFile}" --concurrency 4 --verify-runs 2`);
 console.log(`  node "${cliRel}" audit`);
 console.log(`  node "${cliRel}" mutate src/`);

@@ -1,28 +1,140 @@
 {
   "version": 1,
-  "lockedAt": "2026-11-17T10:43:41.210Z",
-  "baseCommit": "a60f238e081a5b7e47bd6dcdcfcc1fcb1caeb0ae",
+  "lockedAt": "2026-11-18T10:11:10.818Z",
+  "baseCommit": "6ccd2cfe89e37a10c2211144b23cba1263e61dee",
   "testCommand": "npm test",
   "redVerified": {
-    "exitCode": 2,
+    "exitCode": 1,
     "command": "npm test"
   },
   "lockedFiles": [
     {
-      "path": "dist-test/tests/bastion.test.js",
-      "sha256": "016708cc262fe90d8a321d3d77e7b734750d55907059e04e9d4a0d992031df8d"
-    },
-    {
       "path": "package-lock.json",
-      "sha256": "89fe060869b0b05b93cb08f09323399bea121b57d909fc37fb5e95fed465249d"
+      "sha256": "6f06951cc4123530127c28ed65914c923b7242af33488a2d82ff911f59b7312d"
     },
     {
       "path": "package.json",
-      "sha256": "4fc9e3826c9273748370080093989debd6552f4f859f1503e287daeeb4cbdb23"
+      "sha256": "f987beb0e8d6634cd56431f9a8c8b8e9fa8fdaa1a87ffc03cd4d78b26b12f80f"
+    },
+    {
+      "path": "scripts/dogfood-agent.mjs",
+      "sha256": "7e9a263c347c0af9eeb0d586e1563b12f5d6ffb1a5b111e976ff0477b8c48a0e"
     },
     {
       "path": "tests/bastion.test.ts",
-      "sha256": "cf1854db6cdeaae32142670a58cd284226024b3722bd04e9851c312be59cc101"
+      "sha256": "bf2ba92c0e5f13685eb76b186449f7492fded0e075075c9da68697a810c51200"
+    },
+    {
+      "path": "tests/v04-budget.test.ts",
+      "sha256": "5a61c7227cc4daf26b17813717786f4520ca77e894d6b5d3cdacf10a6f6040d5"
+    },
+    {
+      "path": "tests/v04-checks.test.ts",
+      "sha256": "6a8bb854060efa1f03d282393372048f531a5888f8fe0c95a92e6ff77b3a4bd2"
+    },
+    {
+      "path": "tests/v04-helpers.ts",
+      "sha256": "6a44ba49dcc88006754db5da8519693b291c6f38939546cbd3efe21e2db85515"
+    },
+    {
+      "path": "tests/v04-inbox.test.ts",
+      "sha256": "583fbf9eb2f4728137ad56fd703bb651720144d3b4eabf8a5fde7e183de22c3b"
+    },
+    {
+      "path": "tests/v04-ledger.test.ts",
+      "sha256": "bd5985606d5b05338bbfdc969e1062a4acdecc0326c55d3ac6486009cf883a4f"
+    },
+    {
+      "path": "tests/v04-roles.test.ts",
+      "sha256": "2eb401b3d6362f3b156dc6996a446c5658c13d405600856004395e1fb46aece4"
+    },
+    {
+      "path": "tests/v04-summary.test.ts",
+      "sha256": "e7e5d12592a385b7d53a92407985cc5da0c436c48b956100ef5e24613d7dc6d7"
+    },
+    {
+      "path": "tests/v041-amend.test.ts",
+      "sha256": "93b7bddd16c966c2f9dc98234b95cda0bbfa534530f463d520e94eff3eada3e7"
+    },
+    {
+      "path": "tests/v041-output.test.ts",
+      "sha256": "388abb08a12a0edd5cf342307571a330f079535a55f2f8c717778bf88370b81e"
+    },
+    {
+      "path": "tests/v041-progress.test.ts",
+      "sha256": "4f62ff26e602ee59f0d995be2ab49c42b9a3435c7527a9846d8b7fc4e7fa4cd9"
+    },
+    {
+      "path": "tests/v041-protocol.test.ts",
+      "sha256": "3c50636e6ff14c0bf2a4e14c1d0e402c32c32aab1f055441255bc56bbd5a984a"
+    },
+    {
+      "path": "tests/v1-audit-amend.test.ts",
+      "sha256": "5e15b15d98bb1d4264ba09eff87240afd43f56e8416200b35493606f6aaab2f2"
+    },
+    {
+      "path": "tests/v1-dirty.test.ts",
+      "sha256": "ef40abdc22e193de0f5ac198bd05c36dcb178e7cd1d060c485c243cb630324bf"
+    },
+    {
+      "path": "tests/v1-flow.test.ts",
+      "sha256": "ab8454c7a36a354213ed6df96b93ed72154800f39038a8acfb2a6a89368c2f4e"
+    },
+    {
+      "path": "tests/v1-helpers.ts",
+      "sha256": "df3d2558dc3ec3e69b38ac4821663362e1f2d78bf2aa601466ad1b3ec04675d5"
+    },
+    {
+      "path": "tests/v1-map-cmd.test.ts",
+      "sha256": "7a974e1cbc8f4497ac153784c93b5edd5cbdc5ff2a3b5b0039cce05438217de3"
+    },
+    {
+      "path": "tests/v1-map-core.test.ts",
+      "sha256": "6ad4186bbd9dfef8ddcf2e12bee81a888ef189177332c69cee0f95ad403128be"
+    },
+    {
+      "path": "tests/v1-map-details.test.ts",
+      "sha256": "faf7af38d2658b4442c8d26c8ba935453ae074b5d632036f028183ac2abead45"
+    },
+    {
+      "path": "tests/v1-mutate-comments.test.ts",
+      "sha256": "4da50cbc3699ef8aeaaa084fab4d88db07c5a7c6c80a577f9689e35548d93f5b"
+    },
+    {
+      "path": "tests/v1-qa.test.ts",
+      "sha256": "b8dee7d679a80293ba0a13ba92c3dd457fcdfbc85d0edc030084c05d02365915"
+    },
+    {
+      "path": "tests/v1-readme.test.ts",
+      "sha256": "bb7db48d9c39c4822226804cc7ee4130cae052d6ffc8b9b504d96a3caa9aee2b"
+    },
+    {
+      "path": "tests/v1-regress.test.ts",
+      "sha256": "988f480999e0de78b7ac273a53564bc59090b0d43e4584b53b620343004c2323"
+    },
+    {
+      "path": "tests/v1-review.test.ts",
+      "sha256": "637fee684fae10cb8206860b4dc411152a0d3be15fbad4f4c9eafe334c0be79a"
+    },
+    {
+      "path": "tests/v1-scaffold.test.ts",
+      "sha256": "418962b4fa182a8f39b362f81677dcc295c1d9b21f262c758af4a5bb2f040195"
+    },
+    {
+      "path": "tests/v1-single.test.ts",
+      "sha256": "39c6b48f54b2b545e835b46db450b0e8aa3a328c870c070f2f525911dcf05f19"
+    },
+    {
+      "path": "tests/v1-slots.test.ts",
+      "sha256": "68d3b3ffb0d910a2d718883c657fe1baba9d197022094c08a1ba03a4246a40be"
+    },
+    {
+      "path": "tests/v1-split.test.ts",
+      "sha256": "a9fb5e9329f51d6cf7c4ca7abb2988c321f6f649f197667a2bdd1623813d0ac3"
+    },
+    {
+      "path": "tests/v1-tests-cmd.test.ts",
+      "sha256": "9766d584897e881058d01cf04c9d58e7e81d6a294df7e63fc285d3d0cfd8ebba"
     },
     {
       "path": "tsconfig.json",
@@ -35,18 +147,6 @@
   ],
   "testSummary": [
     {
-      "file": "dist-test/tests/bastion.test.js",
-      "names": [
-        "bastion-gate v0.1 e2e",
-        "init generates config, AGENTS.md, SKILL.md, and GitHub Action workflow",
-        "lock rejects tautological green tests on baseline (red-first enforcement)",
-        "locks red test, blocks test/config tampering in gate, and passes genuine fix",
-        "init auto-detects testCommand for Python, Go, Rust, and Flutter projects",
-        "lock ignores gitignored build/output directories like dist-test",
-        "mutate detects killed vs survived mutations and always restores source files"
-      ]
-    },
-    {
       "file": "tests/bastion.test.ts",
       "names": [
         "bastion-gate v0.1 e2e",
@@ -55,7 +155,423 @@
         "locks red test, blocks test/config tampering in gate, and passes genuine fix",
         "init auto-detects testCommand for Python, Go, Rust, and Flutter projects",
         "lock ignores gitignored build/output directories like dist-test",
-        "mutate detects killed vs survived mutations and always restores source files"
+        "mutate detects killed vs survived mutations and always restores source files",
+        "plan & run orchestrate parallel worktree waves, block test-cheat with retry, and verify merged result",
+        "plan --init generates nodes from locked test files and run aborts fast on setupCommand failure",
+        "run preserves multiline/quoted prompts via promptFile, skips .env files, and supports --resume",
+        "lock rejects fake-red import/syntax errors and run pauses on dispute file",
+        "init generates consistent workflow with setup steps and baseBranch; plan --init deduplicates IDs and orders integration tests",
+        "mutate skips auxiliary dirs in isolated worktree and clean respects dry-run + preserves run-* branches"
+      ]
+    },
+    {
+      "file": "tests/v04-budget.test.ts",
+      "names": [
+        "v0.4 N5 budget",
+        "resolveBudgetLimits takes config.budget and lets flags override field by field",
+        "checkBudget reports the limit that is reached (usage >= limit)",
+        "run stops with exit 3 when calls run out, keeps finished work, and resumes with a larger budget"
+      ]
+    },
+    {
+      "file": "tests/v04-checks.test.ts",
+      "names": [
+        "v0.4 N2 checks",
+        "runPreChecks passes when every check exits 0",
+        "runPreChecks stops at the first failure and reports which check and its output",
+        "runPreChecksAsync has the same contract",
+        "an empty check list passes",
+        "gate runs baseline checks before the tests and fails naming the check",
+        "runtime artifacts under .bastion/outbox/ are not treated as tampering"
+      ]
+    },
+    {
+      "file": "tests/v04-inbox.test.ts",
+      "names": [
+        "v0.4 N4 inbox",
+        "openQuestions / answerQuestion / answersForNode round trip",
+        "ids are unique across nodes and answering an unknown id throws",
+        "a tier-3 question pauses only that node; independent nodes and their dependents still finish (exit 2)",
+        "a hard failure stops only the failed node and its dependents (exit 1)"
+      ]
+    },
+    {
+      "file": "tests/v04-ledger.test.ts",
+      "names": [
+        "v0.4 N3 ledger",
+        "appendDecisions writes tier-2 records with id, timestamp and node, and returns them",
+        "appends keep earlier records, keep order, and never reuse ids",
+        "appending nothing does not create records",
+        "formatDecisions lists oldest first with what / why / how to undo",
+        "a decision made inside a node with `bastion decide` lands in the main repo ledger, not in git"
+      ]
+    },
+    {
+      "file": "tests/v04-roles.test.ts",
+      "names": [
+        "v0.4 N1 roles",
+        "uses roles.worker when configured",
+        "explicit --agent beats roles.worker",
+        "falls back to agentCommand when the role is not configured",
+        "each role resolves its own slot",
+        "returns undefined when nothing is configured",
+        "bastion run builds with roles.worker when no agentCommand / --agent is given"
+      ]
+    },
+    {
+      "file": "tests/v04-summary.test.ts",
+      "names": [
+        "v0.4 N6 summary",
+        "prints exactly three lines: done / decided for you / waiting for you",
+        "works on a fresh repo with no bastion state",
+        "`bastion summary` prints the three lines and exits 0"
+      ]
+    },
+    {
+      "file": "tests/v041-amend.test.ts",
+      "names": [
+        "v0.4.1 M1 lock --amend after implementation",
+        "accepts a strengthened test that is green on HEAD but red on the previous baseline",
+        "rejects an amended test that also passes on the previous baseline (tautology), leaving the lock unchanged",
+        "a normal red amend (suite still red on HEAD) keeps working and does not set redVerifiedAgainst"
+      ]
+    },
+    {
+      "file": "tests/v041-output.test.ts",
+      "names": [
+        "v0.4.1 M2 output",
+        "drops stack frames but keeps assertion and summary lines in order",
+        "keeps only the last maxLines lines and has no trailing newline",
+        "gate PASS prints a short summary instead of the full noisy output",
+        "gate FAIL feedback for the agent has no stack frames and still shows the assertion"
+      ]
+    },
+    {
+      "file": "tests/v041-progress.test.ts",
+      "names": [
+        "v0.4.1 M4 progress",
+        "adds a fourth line listing running nodes while a run is in progress",
+        "stays at three lines when nothing is running",
+        "run-state lists the node as running while its agent works, and clears it afterwards"
+      ]
+    },
+    {
+      "file": "tests/v041-protocol.test.ts",
+      "names": [
+        "v0.4.1 M3 protocol",
+        "names the node, the CLI path and the decide / ask / dispute commands",
+        "bastion run puts the protocol in front of the node prompt"
+      ]
+    },
+    {
+      "file": "tests/v1-audit-amend.test.ts",
+      "names": [
+        "v1.0 F8 audit: authorised lock amendments",
+        "passes a --no-ff merge carrying a properly amended lock and reports it as an authorised amendment",
+        "fails a merge that edits a locked test without amending the lock",
+        "fails when the amended lock records a sha256 that does not match the merged test content",
+        "fails when a touched locked-glob file is missing from the amended lock",
+        "fails a merge that touches .bastion/config.json even with an otherwise valid amendment",
+        "fails when lock.json was hand-edited to match new content without adding an amendment",
+        "reports a good amendment merge as PASS and a later bad merge as FAIL, exiting 1",
+        "v1.0 F8 isAuthorizedAmendment (unit)",
+        "is true for a properly amended merge, with or without lock.json listed in touched",
+        "is false when touched includes config.json or a path absent from the new lock",
+        "is false when the lock did not gain amendments",
+        "is false when the recorded sha256 differs from the content at sha",
+        "is false (does not throw) when the lock is missing at sha or at its first parent"
+      ]
+    },
+    {
+      "file": "tests/v1-dirty.test.ts",
+      "names": [
+        "v1.0 F10 blockingDirtyFiles",
+        "is empty for a clean tree",
+        "ignores untracked scratch files, at the root and nested",
+        "blocks on an untracked file that matches a locked pattern",
+        "blocks on an untracked file under tests/ even in a nested directory",
+        "blocks on a modified tracked file even if no pattern matches it",
+        "blocks on staged, deleted and renamed tracked files",
+        "blocks on untracked baseline bastion files, but not on other .bastion files",
+        "never blocks on gitignored files, even when they match a locked pattern",
+        "returns repo-relative POSIX paths in git status order",
+        "v1.0 F10 runSwarm dirty check",
+        "runs (exit 0) when the only dirt is an untracked scratch file",
+        "refuses (exit 1) when a tracked file is modified, naming the file",
+        "refuses (exit 1) when an untracked file sits under a locked glob"
+      ]
+    },
+    {
+      "file": "tests/v1-flow.test.ts",
+      "names": [
+        "v1.0 flow",
+        "walks requirement -> review -> swarm -> qa -> done across three invocations",
+        "resuming after done returns 0 without any new role call",
+        "a failing planner stage returns its non-zero code and leaves nothing approved",
+        "a failed stage is not recorded as finished: fixing it and re-running continues",
+        "qa fail triggers exactly one resumed swarm and one more qa, then stops with a non-zero code"
+      ]
+    },
+    {
+      "file": "tests/v1-map-cmd.test.ts",
+      "names": [
+        "v1.0 bastion map",
+        "writes every output from planner + blind maps and calls both roles with separate prompts",
+        "runs planner and blind in parallel",
+        "identical maps give \"No differences.\"",
+        "removes a stale approval.json",
+        "invalid planner map -> 1, prints errors, writes no outputs and keeps approval",
+        "invalid blind map -> still 0, diff says blind map was invalid and lists its errors",
+        "blind that writes no output file is treated as invalid, not fatal",
+        "planner that writes no output -> 1",
+        "no planner command -> 1 and no role is called",
+        "blind falls back to the planner command when no blind role is configured",
+        "requires a requirement unless a parent is given",
+        "v1.0 bastion map --node",
+        "splits a node: asks both roles, rewrites map.json/plan.json/interfaces/acceptance, drops approval",
+        "rewires dependents of the split node onto every sub node",
+        "invalid sub-map -> 1 and map.json is unchanged",
+        "unknown parent -> 1; missing map.json -> 1",
+        "v1.0 map.ts helpers",
+        "validateMap accepts the sample map and normalises dependsOn",
+        "validateMap rejects each broken rule with at least one error",
+        "diffMaps reports only-in, dependency and ownership differences",
+        "diffMaps reports a file owned by different nodes",
+        "renderMapDiff: empty -> No differences.; otherwise one section per non-empty list",
+        "renderInterfaces and renderAcceptance follow the documented layout",
+        "mapToPlan builds one tier-1 node per map node with the documented prompt lines",
+        "v1.0 split.ts",
+        "mapDepth counts dot-separated segments; MAX_MAP_DEPTH is 3",
+        "splitNode replaces the parent in place, prefixes ids, inherits and rewires dependencies",
+        "splitNode throws on unknown parent, empty sub, and depth overflow",
+        "v1.0 runRole",
+        "passes role env, prompt and output placeholders, and returns exit code and output",
+        "times out slow commands with exit code 124"
+      ]
+    },
+    {
+      "file": "tests/v1-map-core.test.ts",
+      "names": [
+        "validateMap",
+        "accepts the sample map and defaults dependsOn to []",
+        "does not mutate its input",
+        "rejects non-objects, wrong version, non-string requirement/interfaces",
+        "rejects missing, empty or non-array nodes",
+        "rejects each empty / missing / blank required node field and names the field",
+        "rejects empty/non-string files and acceptance arrays",
+        "rejects a non-object node entry without throwing",
+        "rejects duplicate ids and names the id",
+        "rejects unknown dependsOn ids and names both node and missing id",
+        "rejects self-dependency, 2-cycles and long cycles; accepts diamonds",
+        "rejects a file owned by two nodes, naming the file",
+        "rejects a testFile that is listed in any node files (own or another node)",
+        "reports multiple independent problems in one call",
+        "diffMaps",
+        "reports no differences for identical maps",
+        "matches nodes by id and lists ones present on only one side",
+        "reports dependsOn differences for shared nodes in the documented line format, order-insensitive",
+        "treats missing dependsOn the same as []",
+        "reports files owned by different nodes, or owned in only one map",
+        "reports a file owned in only one map even when its owner id is not shared",
+        "renderMapDiff",
+        "says \"No differences.\" under a \"# Map diff\" heading when empty",
+        "renders one section per non-empty list, with \"- \" items, and no \"No differences.\"",
+        "renders the blind-map and ownership sections",
+        "works end to end with diffMaps",
+        "renderInterfaces / renderAcceptance",
+        "renderInterfaces: heading, shared interfaces, then a section per node in order",
+        "renderAcceptance: heading and one \"- \" line per acceptance item under its node",
+        "mapToPlan",
+        "produces one plan node per map node with id/title/dependsOn/testCommand/tier",
+        "prompt carries summary, Edit only line, interface, every acceptance sentence, locked tests and test command",
+        "does not leak another node's details into a node prompt",
+        "readMap / writeJson / writeText",
+        "readMap returns null when the file is missing",
+        "writeJson then readMap round-trips a valid map (dependsOn normalised)",
+        "readMap returns null for a map that fails validation, and tolerates a BOM",
+        "writeText creates parent dirs and ends the file with exactly one newline"
+      ]
+    },
+    {
+      "file": "tests/v1-map-details.test.ts",
+      "names": [
+        "v1.0 F9 diffMapDetails",
+        "returns [] for identical maps",
+        "ignores whitespace-only interface changes (runs, newlines, edges)",
+        "reports a real interface change as \"<id>: interface differs\"",
+        "collapsing whitespace does not hide a change that removes whitespace between tokens",
+        "compares acceptance as sets of trimmed sentences (order, padding and duplicates do not matter)",
+        "lists every differing acceptance sentence on both sides, with the list sizes",
+        "emits one line per kind per node: interface line and acceptance line for the same node",
+        "orders output by map A node order and ignores nodes present in only one map",
+        "v1.0 F9 map-diff.md",
+        "adds an \"Interfaces and acceptance\" section (and no \"No differences.\") when only one interface differs",
+        "still says \"No differences.\" for identical maps, with no details section"
+      ]
+    },
+    {
+      "file": "tests/v1-mutate-comments.test.ts",
+      "names": [
+        "v1.0 F11 codeLineMask",
+        "returns one boolean per line (empty input gives empty output)",
+        "masks every line of a multi-line JSDoc block, including `*` lines, and resumes code after it",
+        "masks a plain `/*` block whose inner lines do not start with `*`",
+        "masks single-line block comments (`/* ... */` and `/** ... */`) and does not leak into the next line",
+        "treats a line with code before an opening block comment as code, and the following comment lines as not",
+        "a `//` inside a block comment does not end it",
+        "a `/*` inside a `//` comment does not open a block comment",
+        "masks lines that are entirely a `//` or `#` comment (indented too) but keeps trailing-comment code lines",
+        "masks import lines and blank / whitespace-only lines, but not identifiers that merely start with \"import\"",
+        "a leading `*` outside a block comment is code (multiplication continuation)",
+        "handles several block comments in one file",
+        "v1.0 F11 runMutate skips comments",
+        "mutates only the real `===` line, not the one inside a JSDoc block",
+        "reports no mutation points when `===` / true / false appear only in comments"
+      ]
+    },
+    {
+      "file": "tests/v1-qa.test.ts",
+      "names": [
+        "v1.0 parseQaReport",
+        "accepts pass and fail reports and returns them intact",
+        "rejects anything that is not a well-formed report",
+        "v1.0 runQa",
+        "returns 1 without calling the role when there is no run-state",
+        "returns 1 without calling the role when acceptance.md is missing",
+        "pass: returns 0, changes nothing, and tells the role the acceptance list and the integration diff",
+        "cuts the diff handed to the role to 200 KB",
+        "invalid report: returns 1 and reopens nothing",
+        "role that writes no report: returns 1 and reopens nothing",
+        "fail with a code finding: reopens only that node, writes its feedback, returns 1 and says what to do",
+        "feedback is appended, not overwritten, across qa runs and several findings for one node",
+        "test_defect findings go to qa-disputes.md only: node stays complete, no feedback, still returns 1",
+        "mixed findings are split by kind",
+        "v1.0 qa -> run --resume wiring",
+        "the reopened node gets the QA issue in its prompt, only it re-runs, and the feedback file is removed after it passes",
+        "feedback survives a resume where the node still fails its gate"
+      ]
+    },
+    {
+      "file": "tests/v1-readme.test.ts",
+      "names": [
+        "v1.0 P11 README feature matrix",
+        "${file} lists every feature as implemented"
+      ]
+    },
+    {
+      "file": "tests/v1-regress.test.ts",
+      "names": [
+        "P9 regress",
+        "finds the first breaking merge (default base = config.baseBranch)",
+        "runs the command in temporary worktrees, never in the repo, and cleans up",
+        "first culprit only: later merges that stay broken are not blamed",
+        "respects an explicit --base before the culprit",
+        "breaking change in the very first merge is found (first parent = base passes)",
+        "no breaking merge -> no culprit, explanatory message",
+        "no merges after base -> checked 0 or more, no culprit, no crash",
+        "runRegress: culprit -> prints git revert -m 1 <sha>, returns 1",
+        "runRegress: clean history -> returns 0 and no revert hint"
+      ]
+    },
+    {
+      "file": "tests/v1-review.test.ts",
+      "names": [
+        "v1.0 P3 renderBrief",
+        "contains requirement, numbered nodes with title, summary and every acceptance sentence",
+        "is plain language: no raw interface signatures or test commands leaked",
+        "reports 0 disagreements for \"No differences.\"",
+        "reports the number of \"- \" items in the diff (3), not sections or 0",
+        "v1.0 P3 isMapApproved",
+        "is false without approval.json, even with a map",
+        "is true when approval.json mapSha256 equals the sha256 of map.json bytes",
+        "is false when the hash is wrong, stale after a whitespace edit, or approval is unparseable",
+        "v1.0 P3 runReview",
+        "writes .bastion/brief.md and prints it, without approving",
+        "--approve writes approval.json {mapSha256, at} matching the map bytes",
+        "changing the map after approval invalidates it; re-approving fixes it",
+        "returns 1 with no map and writes neither brief nor approval"
+      ]
+    },
+    {
+      "file": "tests/v1-scaffold.test.ts",
+      "names": [
+        "v1.0 scaffold",
+        "calls the worker once, creates every node file and commits them as \"chore(bastion): scaffold\"",
+        "tells the worker the interfaces.md text and every node\\'s files and interface",
+        "returns 1 and commits nothing when a node file is missing after the worker ran",
+        "returns 1 without calling any role when map.json is missing"
+      ]
+    },
+    {
+      "file": "tests/v1-single.test.ts",
+      "names": [
+        "v1.0 resolveRunMode",
+        "defaults to swarm when runMode is unset, regardless of size",
+        "honours explicit config runMode swarm / single regardless of node count",
+        "auto: single when nodeCount <= singleMaxNodes (default 3), swarm above; boundary is inclusive",
+        "requested mode wins over every config value",
+        "v1.0 mergeNodesForSingle",
+        "produces the synthetic node with id, title, full testCommand, tier 1 and no dependsOn",
+        "title counts nodes",
+        "lists every node as \"## <i>. <id>: <title>\" followed by its prompt, in plan order when independent",
+        "orders topologically: dependencies first even when declared later; ties keep plan order",
+        "tells the agent to finish the nodes in that order",
+        "does not mutate its input",
+        "v1.0 single mode in runSwarm",
+        "runMode \"single\": one agent call for the whole plan, both nodes completed",
+        "runMode unset: one agent call per node"
+      ]
+    },
+    {
+      "file": "tests/v1-slots.test.ts",
+      "names": [
+        "v1.0 slot pool",
+        "limit 2 runs at most two at once and queues the rest",
+        "never exceeds the limit even when tasks finish out of order",
+        "starts waiting callers in FIFO order (limit 1)",
+        "does not invoke a queued fn before a slot is free",
+        "passes through resolved values and rejections unchanged",
+        "releases the slot when fn rejects, so the next waiter runs",
+        "releases the slot when fn throws synchronously",
+        "a failure in one task does not stall the rest of a long queue",
+        "limit ${label} is unlimited",
+        "pools are independent of each other",
+        "active() is 0 on a fresh pool and counts only running fns, not queued ones"
+      ]
+    },
+    {
+      "file": "tests/v1-split.test.ts",
+      "names": [
+        "v1.0 P10 mapDepth",
+        "counts dot-separated segments and MAX_MAP_DEPTH is 3",
+        "v1.0 P10 splitNode",
+        "replaces the parent with prefixed sub nodes, keeping position and the other nodes",
+        "keeps first/last positions when the parent is first or last",
+        "prefixes internal dependsOn and lets root sub nodes inherit the parent dependsOn",
+        "gives root sub nodes an empty dependency list when the parent has none",
+        "rewires dependants of the parent to every sub node, without duplicates or dangling ids",
+        "appends sub interfaces under a \"## <parentId>\" heading and keeps the existing ones",
+        "does not mutate its inputs and returns a new map",
+        "can split an already split node up to MAX_MAP_DEPTH, and rejects going deeper",
+        "rejects a sub node whose own id is nested too deeply",
+        "throws for an unknown parent id",
+        "throws when the sub map has no nodes"
+      ]
+    },
+    {
+      "file": "tests/v1-tests-cmd.test.ts",
+      "names": [
+        "v1.0 bastion tests",
+        "calls the tester once per node with interfaces.md, interface, acceptance and testFile",
+        "commits the test files as \"test(bastion): acceptance tests\" and does not lock without --lock",
+        "returns 1 when the tester leaves a test file missing, and still ran every node",
+        "treats an empty test file as missing",
+        "returns 1 when the tester process exits non-zero even if it wrote the file",
+        "--lock writes and commits .bastion/lock.json covering the test files",
+        "--lock returns the lock result: green tests are refused and no lock is committed",
+        "--lock on an existing lock amends it with reason \"bastion tests\"",
+        "runs testers in parallel by default (concurrency 2)",
+        "concurrency 1 runs testers strictly one after another"
       ]
     }
   ],
@@ -65,6 +581,43 @@
       "reason": "v0.2 acceptance tests: gitignore-aware lock & mutation spot-check",
       "previousBaseCommit": "3895864da6385daedb06f41a5dc7290daef894f4",
       "newBaseCommit": "a60f238e081a5b7e47bd6dcdcfcc1fcb1caeb0ae"
+    },
+    {
+      "at": "2026-11-18T07:39:39.820Z",
+      "reason": "v0.4 dogfood: add red acceptance tests for N1-N6 and the dogfood agent wrapper",
+      "previousBaseCommit": "a60f238e081a5b7e47bd6dcdcfcc1fcb1caeb0ae",
+      "newBaseCommit": "90f254dcf4fa9572901163943e51bcd528b0b3c7"
+    },
+    {
+      "at": "2026-11-18T08:05:57.581Z",
+      "reason": "v0.4.1: red tests for F1 amend, F4/F7 quiet output, F3 protocol, F6 progress",
+      "previousBaseCommit": "90f254dcf4fa9572901163943e51bcd528b0b3c7",
+      "newBaseCommit": "0ea3c36d5d38085eab40667309c39c65b074f198"
+    },
+    {
+      "at": "2026-11-18T08:56:59.334Z",
+      "reason": "v1.0: red acceptance tests for P1-P12 (written by Sonnet tester sessions, reviewed)",
+      "previousBaseCommit": "0ea3c36d5d38085eab40667309c39c65b074f198",
+      "newBaseCommit": "3587d415d95b1303ff115d50fdda9a5e4dfed77f"
+    },
+    {
+      "at": "2026-11-18T09:12:58.423Z",
+      "reason": "dispute p9-regress accepted: test called realpathSync on a temp dir it then asserts is deleted",
+      "previousBaseCommit": "3587d415d95b1303ff115d50fdda9a5e4dfed77f",
+      "newBaseCommit": "a77ea787947486eb50274e366b04093e12b22332"
+    },
+    {
+      "at": "2026-11-18T09:31:39.552Z",
+      "reason": "v1.0 fix round: red tests for F8-F11",
+      "previousBaseCommit": "a77ea787947486eb50274e366b04093e12b22332",
+      "newBaseCommit": "f93f3d71c821c2da51093c178e0cbaaed941fb11"
+    },
+    {
+      "at": "2026-11-18T10:11:10.818Z",
+      "reason": "release v1.0.0: package.json/package-lock.json version bump",
+      "previousBaseCommit": "f93f3d71c821c2da51093c178e0cbaaed941fb11",
+      "newBaseCommit": "6ccd2cfe89e37a10c2211144b23cba1263e61dee",
+      "redVerifiedAgainst": "f93f3d71c821c2da51093c178e0cbaaed941fb11"
     }
   ]
 }

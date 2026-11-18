@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   CONFIG_REL_PATH,
   LOCK_REL_PATH,
@@ -6,6 +8,37 @@ import {
 } from '../config.js';
 import { execGit, getChangedFilesBetween, getRepoRoot } from '../git.js';
 import { matchesAnyGlob } from '../runner.js';
+
+/**
+ * True when a merge that touched locked files is an authorised lock amendment (v1.0, F8):
+ * the lock.json at `sha` has more `amendments` than the lock.json at `sha^1`, and every touched path
+ * other than .bastion/lock.json is listed in the new lock's lockedFiles with a sha256 equal to that
+ * file's content at `sha`. Touching .bastion/config.json is never authorised. Missing/unreadable locks -> false.
+ */
+export function isAuthorizedAmendment(repoRoot: string, sha: string, touched: string[]): boolean {
+  try {
+    if (touched.includes(CONFIG_REL_PATH)) return false;
+    const newLock = readLockFromRef(sha, repoRoot);
+    const oldLock = readLockFromRef(`${sha}^1`, repoRoot);
+    if ((newLock.amendments?.length ?? 0) <= (oldLock.amendments?.length ?? 0)) return false;
+    const recorded = new Map(newLock.lockedFiles.map((f) => [f.path, f.sha256]));
+    for (const rel of touched) {
+      if (rel === LOCK_REL_PATH) continue;
+      const expected = recorded.get(rel);
+      if (!expected) return false;
+      const res = spawnSync('git', ['show', `${sha}:${rel}`], {
+        cwd: repoRoot,
+        maxBuffer: 256 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      if (res.status !== 0 || !Buffer.isBuffer(res.stdout)) return false;
+      if (createHash('sha256').update(res.stdout).digest('hex') !== expected) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface AuditOptions {
   cwd: string;
@@ -64,7 +97,9 @@ export function runAudit(opts: AuditOptions): number {
         matchesAnyGlob(rel, patterns)
     );
 
-    if (touched.length > 0) {
+    if (touched.length > 0 && isAuthorizedAmendment(repoRoot, sha, touched)) {
+      console.log(`[PASS] ${sha.slice(0, 8)} (${subject}) - authorised lock amendment`);
+    } else if (touched.length > 0) {
       failures++;
       console.error(`[FAIL] ${sha.slice(0, 8)} (${subject}) modified locked files:`);
       for (const f of touched) console.error(`  - ${f}`);

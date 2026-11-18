@@ -1,6 +1,6 @@
 {
   "name": "bastion-gate",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "Multi-agent parallel development & hard-gate CLI for AI coding agents. DAG waves, worktree isolation, red-first lock, baseline CI gate.",
   "author": "mmxz",
   "repository": {

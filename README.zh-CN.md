@@ -69,6 +69,52 @@ npx bastion-gate run --setup "npm ci" --agent "claude -p --permission-mode accep
 - `bastion audit [--limit <n>]`：针对纯本地无 CI 仓库，核查历史合并提交是否绕过锁定范围。
 - `bastion clean [--yes] [--runs]`：默认仅预览可清理的临时工作区和分支，加 `--yes` 后执行删除。
 
+## 原设计 vs 已实现
+
+<!-- feature-matrix:start -->
+| 功能 | 状态 | 说明 |
+| --- | --- | --- |
+| `map` | ✅ | 由 planner 与 blind 角色把需求拆成节点计划。 |
+| `review` | ✅ | 展示计划供人工审阅，`--approve` 记录批准。 |
+| `scaffold` | ✅ | 生成测试与开发所依赖的接口骨架。 |
+| `tests` | ✅ | 在写代码之前由 tester 角色先写验收测试。 |
+| `run` | ✅ | 按节点运行 worker，支持单会话与并行模式，并合并已验证的成果。 |
+| `gate` | ✅ | 检查锁定文件未被改动且测试命令通过。 |
+| `lock` | ✅ | 要求基线上测试先失败，再锁定测试文件。 |
+| `mutate` | ✅ | 对源码做小改动，看测试能否发现。 |
+| `audit` | ✅ | 检查近期合并提交是否绕过锁定范围。 |
+| `qa` | ✅ | 由 qa 角色对照需求审查合并结果。 |
+| `flow` | ✅ | 把以上步骤串成一条命令，并保留人工介入点。 |
+| `summary` | ✅ | 用通俗语言输出做了什么、验证了什么。 |
+| `decisions` | ✅ | 列出 worker 记录的可撤销设计选择。 |
+| `answer` | ✅ | 回复 worker 提出的问题，让运行继续。 |
+| `budget` | ✅ | 查看或限制一次运行可消耗的工作量。 |
+| `checks` | ✅ | 运行项目配置的额外验证检查。 |
+| `roles` | ✅ | 让每个阶段使用各自的 Agent 命令。 |
+<!-- feature-matrix:end -->
+
+## 棱堡流程（Fortress flow）
+
+`bastion flow "<需求>"` 从一条需求出发，依次执行 map、review、scaffold、tests、lock、run、qa 和 summary，需要人时会停下。共有四个人工介入点：
+
+1. **需求**：由你撰写并传给 `flow`。
+2. **`review --approve`**：你阅读计划并批准。
+3. **回答问题**：worker 提问时，用 `bastion answer` 回复。
+4. **最终合并**：由你自己合并完成后的集成分支。
+
+## 配置说明
+
+配置位于 `.bastion/config.json`。
+
+- `roles`：按角色指定 Agent 命令，角色为 `planner`、`blind`（第二个独立的规划者）、`tester`、`worker`、`qa`。缺省角色回退到 `agentCommand`。
+- `runMode`：`auto`、`swarm` 或 `single`。`single` 在单个会话中顺序执行节点，`swarm` 使用并行工作区；未设置时为 `swarm`。命令行 `--single` / `--swarm` 优先。
+- `singleMaxNodes`：`runMode` 为 `auto` 时，节点数不超过该值则用 `single`（默认 3），否则用 `swarm`。
+- `compileSlots`：所有 worker 同时进行的门禁运行（编译与测试）数量上限。
+
+```json
+{ "runMode": "auto", "singleMaxNodes": 3, "compileSlots": 2, "roles": { "planner": "claude -p", "worker": "claude -p" } }
+```
+
 ## 内置演练示例
 
 仓库自带一个 5 模块的“个人记账报表”并发示例（4 个独立模块并发 + 1 个命令行汇总），可直接体验：

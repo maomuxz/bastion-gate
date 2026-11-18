@@ -104,6 +104,52 @@ npx bastion-gate run --setup "npm ci" --agent "claude -p < {promptFile}" --concu
 - `bastion clean [--yes] [--runs]`  
   Dry-run by default: previews leftover worktrees and temporary `bastion/<node>` branches. Pass `--yes` to delete them (preserves `bastion/run-*` integration branches unless `--runs` is also passed for already-merged runs).
 
+## Original design vs implemented
+
+<!-- feature-matrix:start -->
+| Feature | Status | What it does |
+| --- | --- | --- |
+| `map` | ✅ | Turns the requirement into a plan of nodes using the planner and blind roles. |
+| `review` | ✅ | Shows the plan for a human to read; `--approve` records approval. |
+| `scaffold` | ✅ | Creates the interface skeleton that tests and workers build on. |
+| `tests` | ✅ | Has the tester role write the acceptance tests before any code exists. |
+| `run` | ✅ | Runs workers per node, in single-session or swarm mode, and merges verified work. |
+| `gate` | ✅ | Checks that locked files are untouched and the test command passes. |
+| `lock` | ✅ | Requires red tests on the baseline, then locks the test files. |
+| `mutate` | ✅ | Makes small source changes to see whether the tests notice them. |
+| `audit` | ✅ | Checks recent merge commits for locked-scope bypasses. |
+| `qa` | ✅ | Has the qa role review the merged result against the requirement. |
+| `flow` | ✅ | Chains the steps above into one command with human touch points. |
+| `summary` | ✅ | Prints a plain-language report of what was built and verified. |
+| `decisions` | ✅ | Lists the reversible design choices that workers recorded. |
+| `answer` | ✅ | Replies to a question a worker asked, so the run can continue. |
+| `budget` | ✅ | Shows or limits the work a run is allowed to spend. |
+| `checks` | ✅ | Runs the extra verification checks configured for the project. |
+| `roles` | ✅ | Lets each stage use its own agent command. |
+<!-- feature-matrix:end -->
+
+## Fortress flow
+
+`bastion flow "<requirement>"` runs the whole pipeline from one requirement: map, review, scaffold, tests, lock, run, qa and summary. It stops when it needs a person. There are four human touch points:
+
+1. **Requirement**: you write it and pass it to `flow`.
+2. **`review --approve`**: you read the plan and approve it.
+3. **Answers**: if a worker asks a question, you reply with `bastion answer`.
+4. **Final merge**: you merge the finished integration branch yourself.
+
+## Config
+
+Settings live in `.bastion/config.json`.
+
+- `roles`: agent command per role. Roles are `planner`, `blind` (a second, independent planner), `tester`, `worker` and `qa`. A missing role falls back to `agentCommand`.
+- `runMode`: `auto`, `swarm` or `single`. `single` runs nodes in one session; `swarm` runs parallel worktrees. Unset means `swarm`. The `--single` and `--swarm` flags override it.
+- `singleMaxNodes`: with `runMode: "auto"`, plans of this many nodes or fewer run as `single` (default 3); larger plans use `swarm`.
+- `compileSlots`: the most gate runs (compile and test) allowed at the same time across all workers.
+
+```json
+{ "runMode": "auto", "singleMaxNodes": 3, "compileSlots": 2, "roles": { "planner": "claude -p", "worker": "claude -p" } }
+```
+
 ## Troubleshooting
 
 - **Where are worker logs?** Check `.bastion/logs/<nodeId>-attempt-<n>.log`.

@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { checkBudget, resolveBudgetLimits } from '../budget.js';
 import {
   PlanNode,
   readConfigFromDisk,
@@ -14,8 +16,25 @@ import {
   removeNodeWorktree,
   WorktreeHandle,
 } from '../orchestrator/worktree.js';
+import { answersForNode, hasOpenQuestion, openQuestions } from '../inbox.js';
+import { appendDecisions } from '../ledger.js';
+import { collectOutbox } from '../outbox.js';
+import { agentProtocol } from '../protocol.js';
+import { resolveAgentCommand } from '../roles.js';
+import { mergeNodesForSingle, resolveRunMode, RunMode, SINGLE_NODE_ID } from '../single.js';
+import { createSlotPool } from '../slots.js';
+import { blockingDirtyFiles } from '../dirty.js';
 import { runTestCommandAsync } from '../runner.js';
+import { readRunState, RunState, writeRunState } from '../state.js';
 import { runGateAsync } from './gate.js';
+
+/** v0.4 exit codes: 1 = failure, 2 = waiting for a human answer, 3 = budget exhausted. */
+export const EXIT_FAILED = 1;
+export const EXIT_WAITING = 2;
+export const EXIT_BUDGET = 3;
+
+/** Absolute path of the CLI entry, exposed to agents as BASTION_CLI so they can run `node "$BASTION_CLI" decide ...`. */
+const BASTION_CLI_PATH = fileURLToPath(new URL('../cli.js', import.meta.url));
 
 export interface RunOptions {
   cwd: string;
@@ -27,12 +46,29 @@ export interface RunOptions {
   verifyRuns?: number;
   timeoutMinutes?: number;
   resume?: boolean;
+  /** v0.4: override config.budget.maxAgentCalls (compared against calls already used). */
+  maxCalls?: number;
+  /** v0.4: override config.budget.maxMinutes (compared against minutes already used). */
+  maxMinutes?: number;
+  /** v1.0: force 'single' (one agent session for the whole plan) or 'swarm'. */
+  mode?: RunMode;
 }
 
-interface RunState {
-  integrationBranch: string;
-  baseRef: string;
-  completedNodes: string[];
+/** v1.0: QA feedback for a reopened node (written by `bastion qa`, consumed on the next attempt). */
+const QA_FEEDBACK_DIR = path.join('.bastion', 'feedback');
+function readQaFeedback(repoRoot: string, nodeId: string): string {
+  const p = path.join(repoRoot, QA_FEEDBACK_DIR, `${nodeId}.md`);
+  return fs.existsSync(p) ? fs.readFileSync(p, 'utf8').trim() : '';
+}
+
+/** Why a node attempt loop stopped without passing. */
+type NodeStop = 'failed' | 'blocked' | 'budget';
+
+interface NodeOutcome {
+  ok: boolean;
+  node: PlanNode;
+  handle: WorktreeHandle;
+  stop?: NodeStop;
 }
 
 interface AgentExecResult {
@@ -42,22 +78,6 @@ interface AgentExecResult {
 }
 
 const BLOCKED_COMMIT_PATTERN = /(?:^|\/)(?:\.env(?:\..+)?|\.DS_Store|Thumbs\.db)$|^\.bastion\//;
-
-function readRunState(repoRoot: string): RunState | null {
-  const p = path.join(repoRoot, '.bastion', 'run-state.json');
-  if (!fs.existsSync(p)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(p, 'utf8')) as RunState;
-  } catch {
-    return null;
-  }
-}
-
-function writeRunState(repoRoot: string, state: RunState): void {
-  const p = path.join(repoRoot, '.bastion', 'run-state.json');
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(state, null, 2) + '\n', 'utf8');
-}
 
 function stageSafeWorktreeFiles(worktreeDir: string, nodeId: string): boolean {
   const dirty = getDirtyFiles(worktreeDir);
@@ -104,12 +124,14 @@ function runAgentAsync(
   feedback: string,
   logFile: string,
   promptFile: string,
-  timeoutMs: number
+  timeoutMs: number,
+  repoRoot: string
 ): Promise<AgentExecResult> {
   return new Promise((resolve) => {
+    const basePrompt = agentProtocol(node.id, BASTION_CLI_PATH) + node.prompt;
     const fullPrompt = feedback
-      ? `${node.prompt}\n\n[Bastion Gate Feedback - Fix Required]\n${feedback}`
-      : node.prompt;
+      ? `${basePrompt}\n\n[Bastion Gate Feedback - Fix Required]\n${feedback}`
+      : basePrompt;
 
     fs.mkdirSync(path.dirname(promptFile), { recursive: true });
     fs.writeFileSync(promptFile, fullPrompt, 'utf8');
@@ -132,6 +154,8 @@ function runAgentAsync(
       BASTION_WORKTREE: worktreeDir,
       BASTION_ATTEMPT: String(attempt),
       BASTION_FEEDBACK: feedback,
+      BASTION_CLI: BASTION_CLI_PATH,
+      BASTION_HOME: repoRoot,
     };
     delete env.NODE_TEST_CONTEXT;
 
@@ -177,26 +201,6 @@ function runAgentAsync(
   });
 }
 
-async function runWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let nextIdx = 0;
-
-  async function next() {
-    while (nextIdx < items.length) {
-      const idx = nextIdx++;
-      results[idx] = await worker(items[idx]);
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, () => next());
-  await Promise.all(workers);
-  return results;
-}
-
 export async function runSwarm(opts: RunOptions): Promise<number> {
   const repoRoot = getRepoRoot(opts.cwd);
   if (!repoRoot) {
@@ -207,6 +211,9 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
   const config = readConfigFromDisk(repoRoot);
   const plan = readPlanFromDisk(repoRoot);
   const waves = buildExecutionWaves(plan.nodes);
+  const mode = resolveRunMode(config, opts.mode, plan.nodes.length);
+  const runNodes: PlanNode[] = mode === 'single' ? [mergeNodesForSingle(plan.nodes, config.testCommand)] : plan.nodes;
+  const gateSlots = createSlotPool(config.compileSlots);
 
   const blockedTier3 = plan.nodes.filter((n) => n.tier === 3 && !n.approved);
   if (blockedTier3.length > 0) {
@@ -215,7 +222,7 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
     return 1;
   }
 
-  const agentCmd = opts.agentCommand ?? config.agentCommand;
+  const agentCmd = resolveAgentCommand(config, 'worker', opts.agentCommand);
   if (!agentCmd) {
     console.error('[bastion] Error: no agentCommand configured. Pass --agent "<cmd>" or set "agentCommand" in .bastion/config.json.');
     return 1;
@@ -227,9 +234,9 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
     return 1;
   }
 
-  const dirty = getDirtyFiles(repoRoot);
+  const dirty = blockingDirtyFiles(repoRoot, [...config.lockedGlobs, ...config.extraLockedPaths]);
   if (dirty.length > 0) {
-    console.error('[bastion] Error: working tree is not clean. Commit or stash changes before `bastion run`.');
+    console.error(`[bastion] Error: working tree is not clean (${dirty.slice(0, 5).join(', ')}). Commit or stash changes before \`bastion run\`.`);
     return 1;
   }
 
@@ -239,8 +246,20 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
   const verifyRuns = opts.verifyRuns ?? config.verifyRuns ?? 1;
   const timeoutMs = (opts.timeoutMinutes ?? config.timeoutMinutes ?? 20) * 60_000;
 
+  const limits = resolveBudgetLimits(config, {
+    ...(opts.maxCalls !== undefined ? { maxAgentCalls: opts.maxCalls } : {}),
+    ...(opts.maxMinutes !== undefined ? { maxMinutes: opts.maxMinutes } : {}),
+  });
+
   let integrationBranch: string;
   const completedSet = new Set<string>();
+  const blockedSet = new Set<string>();
+  const runningSet = new Set<string>();
+  let agentCalls = 0;
+  let priorMinutes = 0;
+  let budgetHit: 'calls' | 'minutes' | null = null;
+  const sessionStart = Date.now();
+  const minutesUsed = () => priorMinutes + (Date.now() - sessionStart) / 60_000;
 
   if (opts.resume) {
     const prev = readRunState(repoRoot);
@@ -250,6 +269,9 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
     }
     integrationBranch = prev.integrationBranch;
     for (const id of prev.completedNodes) completedSet.add(id);
+    for (const id of prev.blockedNodes ?? []) blockedSet.add(id);
+    agentCalls = prev.agentCalls ?? 0;
+    priorMinutes = prev.accumulatedMinutes ?? 0;
     const checkoutRes = execGit(['checkout', integrationBranch], repoRoot);
     if (!checkoutRes.ok) {
       console.error(`[bastion] Error checking out ${integrationBranch}: ${checkoutRes.stderr}`);
@@ -264,8 +286,22 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
       console.error(`[bastion] Error creating integration branch ${integrationBranch}: ${checkoutRes.stderr}`);
       return 1;
     }
-    writeRunState(repoRoot, { integrationBranch, baseRef, completedNodes: [] });
   }
+
+  const saveState = () => {
+    const state: RunState = {
+      integrationBranch,
+      baseRef,
+      completedNodes: [...completedSet],
+      agentCalls,
+      accumulatedMinutes: Math.round(minutesUsed() * 1000) / 1000,
+      blockedNodes: [...blockedSet],
+      runningNodes: [...runningSet],
+      ...(budgetHit ? { budgetHit } : {}),
+    };
+    writeRunState(repoRoot, state);
+  };
+  saveState();
 
   const logsDir = path.join(repoRoot, '.bastion', 'logs');
   const pidFile = path.join(repoRoot, '.bastion', 'run.pid');
@@ -274,50 +310,71 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
 
   try {
   console.log(`[bastion] Integration branch: ${integrationBranch}`);
-  console.log(`[bastion] Starting parallel swarm (${plan.nodes.length} nodes, ${waves.length} waves, concurrency=${concurrency}, maxRetries=${maxRetries})`);
+  console.log(`[bastion] Starting ${mode === 'single' ? 'single-session run' : 'parallel swarm'} (${plan.nodes.length} nodes, ${waves.length} waves, concurrency=${concurrency}, maxRetries=${maxRetries})`);
 
-  for (let w = 0; w < waves.length; w++) {
-    const pendingNodes = waves[w].filter((n) => !completedSet.has(n.id));
-    if (pendingNodes.length === 0) {
-      console.log(`\n=== Wave ${w + 1}/${waves.length}: all nodes already completed, skipping ===`);
-      continue;
-    }
+  const failedSet = new Set<string>();
+  const waitingSet = new Set<string>();
+  const startedSet = new Set<string>();
 
-    console.log(`\n=== Wave ${w + 1}/${waves.length}: [${pendingNodes.map((n) => n.id).join(', ')}] ===`);
-
-    const currentHead = resolveRef('HEAD', repoRoot)!;
-    const handles: WorktreeHandle[] = pendingNodes.map((node) => createNodeWorktree(repoRoot, currentHead, node.id));
-
-    try {
-      const outcomes = await runWithConcurrency(
-        pendingNodes.map((node, i) => ({ node, handle: handles[i] })),
-        concurrency,
-        async ({ node, handle }) => {
+  const runNode = async (node: PlanNode, handle: WorktreeHandle): Promise<NodeOutcome> => {
           if (setupCmd) {
             console.log(`[${node.id}] Running setupCommand: ${setupCmd}`);
             const setupRes = await runTestCommandAsync(setupCmd, handle.dir, timeoutMs);
             if (setupRes.exitCode !== 0) {
               console.error(`[${node.id}] SETUP FAILED (exit ${setupRes.exitCode}):\n${setupRes.stderr || setupRes.stdout}`);
-              return { ok: false, node, handle };
+              return { ok: false, node, handle, stop: 'failed' };
             }
           }
 
+          // Answers to this node's earlier tier-3 questions are appended to its prompt (v0.4).
+          const answers = answersForNode(repoRoot, node.id);
+          const qaFeedback = readQaFeedback(repoRoot, node.id);
+          let nodePrompt = node.prompt;
+          if (answers.length > 0) {
+            nodePrompt += `\n\n[Bastion - Human Answers]\n${answers
+              .map((a) => `Q (${a.id}): ${a.question}\nA: ${a.answer ?? ''}`)
+              .join('\n\n')}`;
+          }
+          if (qaFeedback) nodePrompt += `\n\n[Bastion - QA Feedback, fix these]\n${qaFeedback}`;
+          const nodeForAgent: PlanNode = nodePrompt === node.prompt ? node : { ...node, prompt: nodePrompt };
+
           let feedback = '';
           for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+            const hit = checkBudget({ agentCalls, minutes: minutesUsed() }, limits);
+            if (hit) {
+              budgetHit = hit;
+              console.error(`[${node.id}] Budget limit reached (${hit}); not starting attempt ${attempt}.`);
+              return { ok: false, node, handle, stop: 'budget' };
+            }
+
             const logFile = path.join(logsDir, `${node.id}-attempt-${attempt}.log`);
             const promptFile = path.join(logsDir, `${node.id}-prompt.txt`);
             console.log(`[${node.id}] Attempt ${attempt}/${maxRetries + 1} in ${handle.branch} (log: .bastion/logs/${node.id}-attempt-${attempt}.log)`);
 
+            agentCalls++;
             const agentRes = await runAgentAsync(
               agentCmd,
-              node,
+              nodeForAgent,
               handle.dir,
               attempt,
               feedback,
               logFile,
               promptFile,
-              timeoutMs
+              timeoutMs,
+              repoRoot
             );
+            saveState();
+
+            // Collect outbox: tier-2 decisions go to the ledger; tier-3 questions pause this node only.
+            const box = collectOutbox(handle.dir, node.id);
+            appendDecisions(repoRoot, node.id, box.decisions);
+            const opened = openQuestions(repoRoot, node.id, box.questions);
+            if (opened.length > 0) {
+              blockedSet.add(node.id);
+              saveState();
+              console.error(`[${node.id}] Asked ${opened.length} tier-3 question(s); pausing this node until answered.`);
+              return { ok: false, node, handle, stop: 'blocked' };
+            }
 
             if (agentRes.exitCode !== 0) {
               feedback = agentRes.timedOut
@@ -332,18 +389,18 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
             if (fs.existsSync(disputeFile)) {
               const reason = fs.readFileSync(disputeFile, 'utf8').trim();
               console.error(`[${node.id}] DISPUTE FILED (.bastion/disputes/${node.id}.md) — pausing node for human review:\n${reason}`);
-              return { ok: false, node, handle };
+              return { ok: false, node, handle, stop: 'failed' };
             }
 
-            const gateRes = await runGateAsync({
+            const gateRes = await gateSlots.run(() => runGateAsync({
               cwd: handle.dir,
               baseRef,
               testCommandOverride: node.testCommand,
-            });
+            }));
 
             if (gateRes.exitCode === 0) {
               if (!stageSafeWorktreeFiles(handle.dir, node.id)) {
-                return { ok: false, node, handle };
+                return { ok: false, node, handle, stop: 'failed' };
               }
               console.log(`[${node.id}] GATE PASS on attempt ${attempt}.`);
               return { ok: true, node, handle };
@@ -353,40 +410,105 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
             console.error(`[${node.id}] Gate failed on attempt ${attempt}, feeding back error to agent...`);
           }
 
-          return { ok: false, node, handle };
+          return { ok: false, node, handle, stop: 'failed' };
+  };
+
+  const isReady = (n: PlanNode) =>
+    !completedSet.has(n.id) &&
+    !startedSet.has(n.id) &&
+    !failedSet.has(n.id) &&
+    !waitingSet.has(n.id) &&
+    (n.dependsOn ?? []).every((d) => completedSet.has(d));
+
+  const running = new Map<string, Promise<void>>();
+
+  const startNode = (node: PlanNode) => {
+    startedSet.add(node.id);
+    runningSet.add(node.id);
+    saveState();
+    const p = (async () => {
+      let handle: WorktreeHandle | undefined;
+      try {
+        const currentHead = resolveRef('HEAD', repoRoot)!;
+        handle = createNodeWorktree(repoRoot, currentHead, node.id);
+        const out = await runNode(node, handle);
+        if (out.ok) {
+          console.log(`[bastion] Merging ${handle.branch} -> ${integrationBranch}...`);
+          mergeNodeBranch(repoRoot, handle, node.title);
+          const doneIds = node.id === SINGLE_NODE_ID ? plan.nodes.map((n) => n.id) : [node.id];
+          for (const id of doneIds) {
+            completedSet.add(id);
+            const fb = path.join(repoRoot, QA_FEEDBACK_DIR, `${id}.md`);
+            if (fs.existsSync(fb)) fs.rmSync(fb, { force: true });
+          }
+          blockedSet.delete(node.id);
+        } else if (out.stop === 'blocked') {
+          waitingSet.add(node.id);
+          blockedSet.add(node.id);
+        } else if (out.stop === 'failed') {
+          failedSet.add(node.id);
+          blockedSet.delete(node.id);
         }
-      );
+      } catch (err) {
+        console.error(`[${node.id}] ERROR: ${err instanceof Error ? err.message : String(err)}`);
+        failedSet.add(node.id);
+        blockedSet.delete(node.id);
+      } finally {
+        if (handle) removeNodeWorktree(repoRoot, handle);
+        runningSet.delete(node.id);
+        saveState();
+      }
+    })();
+    running.set(node.id, p);
+    void p.then(() => running.delete(node.id));
+  };
 
-      const failed = outcomes.filter((o) => !o.ok);
-      if (failed.length > 0) {
-        console.error(`\n[bastion] Wave ${w + 1} failed: ${failed.map((f) => f.node.id).join(', ')}`);
-        console.error(`[bastion] Inspect logs under .bastion/logs/. Fix and resume with: bastion run --resume`);
-        return 1;
-      }
-
-      for (const { node, handle } of outcomes) {
-        console.log(`[bastion] Merging ${handle.branch} -> ${integrationBranch}...`);
-        mergeNodeBranch(repoRoot, handle, node.title);
-        completedSet.add(node.id);
-        writeRunState(repoRoot, {
-          integrationBranch,
-          baseRef,
-          completedNodes: [...completedSet],
-        });
-      }
-    } finally {
-      for (const handle of handles) {
-        removeNodeWorktree(repoRoot, handle);
-      }
+  for (;;) {
+    while (!budgetHit && running.size < Math.max(1, concurrency)) {
+      const node = runNodes.find((n) => {
+        if (!isReady(n)) return false;
+        if (hasOpenQuestion(repoRoot, n.id)) {
+          waitingSet.add(n.id);
+          blockedSet.add(n.id);
+          saveState();
+          console.log(`[${n.id}] Has an open question in the inbox; not running it until answered.`);
+          return false;
+        }
+        return true;
+      });
+      if (!node) break;
+      startNode(node);
     }
+    if (running.size === 0) break;
+    await Promise.race([...running.values()]);
   }
 
-  console.log(`\n[bastion] All waves merged into ${integrationBranch}! Running final verification (${verifyRuns}x)...`);
+  if (!plan.nodes.every((n) => completedSet.has(n.id))) {
+    saveState();
+    if (budgetHit) {
+      console.error(`\n[bastion] BUDGET EXHAUSTED (${budgetHit}): ${agentCalls} agent call(s), ${minutesUsed().toFixed(1)} min used.`);
+      console.error('[bastion] Progress saved. Raise the limit and continue with: bastion run --resume --max-calls <n> --max-minutes <n>');
+      return EXIT_BUDGET;
+    }
+    if (failedSet.size > 0) {
+      console.error(`\n[bastion] Failed: ${[...failedSet].join(', ')}`);
+      console.error('[bastion] Inspect logs under .bastion/logs/. Fix and resume with: bastion run --resume');
+      return EXIT_FAILED;
+    }
+    if (waitingSet.size > 0) {
+      console.error(`\n[bastion] Waiting for answers: ${[...waitingSet].join(', ')}. Answer with: bastion answer <id> "<text>", then bastion run --resume`);
+      return EXIT_WAITING;
+    }
+    console.error('[bastion] Some nodes could not be scheduled (unsatisfiable dependencies).');
+    return EXIT_FAILED;
+  }
+
+  console.log(`\n[bastion] All nodes merged into ${integrationBranch}! Running final verification (${verifyRuns}x)...`);
   for (let i = 1; i <= verifyRuns; i++) {
     const res = await runTestCommandAsync(config.testCommand, repoRoot, timeoutMs);
     if (res.exitCode !== 0) {
       console.error(`[bastion] Final verification ${i}/${verifyRuns} FAILED (exit ${res.exitCode}).`);
-      return 1;
+      return EXIT_FAILED;
     }
     console.log(`[bastion] Final verification ${i}/${verifyRuns} PASS (${res.durationMs}ms).`);
   }
@@ -395,6 +517,7 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
   console.log(`  Review and merge when ready: git checkout ${baseRef} && git merge --no-ff ${integrationBranch}`);
   return 0;
   } finally {
+    saveState();
     if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile);
   }
 }

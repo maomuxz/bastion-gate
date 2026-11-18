@@ -20,6 +20,28 @@ export interface BastionConfig {
   maxRetries?: number;
   verifyRuns?: number;
   timeoutMinutes?: number;
+  /** v0.4: per-role agent commands. Missing roles fall back to agentCommand. */
+  roles?: BastionRoles;
+  /** v0.4: pre-checks the gate runs (from the baseline config) before testCommand. */
+  checks?: string[];
+  /** v0.4: run budget. Hitting a limit saves progress and exits with code 3. */
+  budget?: BastionBudget;
+  /** v1.0: 'auto' runs small plans as one agent session, 'swarm' (default when unset) always parallel, 'single' always one session. */
+  runMode?: 'auto' | 'swarm' | 'single';
+  /** v1.0: in auto mode, plans with at most this many nodes run as a single session (default 3). */
+  singleMaxNodes?: number;
+  /** v1.0: at most this many gate/test runs at once across all nodes (unset = unlimited). */
+  compileSlots?: number;
+}
+
+/** blind = the second, independent planner ("white-paper redo"); falls back to planner in `bastion map`. */
+export type RoleName = 'planner' | 'blind' | 'tester' | 'worker' | 'qa';
+
+export type BastionRoles = Partial<Record<RoleName, string>>;
+
+export interface BastionBudget {
+  maxAgentCalls?: number;
+  maxMinutes?: number;
 }
 
 export interface PlanNode {
@@ -47,6 +69,8 @@ export interface LockAmendment {
   reason: string;
   previousBaseCommit: string;
   newBaseCommit: string;
+  /** v0.4.1: set when the amended tests were green on HEAD and red-first was verified against this earlier baseline instead. */
+  redVerifiedAgainst?: string;
 }
 
 export interface BastionLock {
@@ -173,7 +197,36 @@ function parseConfigJson(raw: string, label: string): BastionConfig {
     ...(typeof parsed.timeoutMinutes === 'number' && parsed.timeoutMinutes > 0
       ? { timeoutMinutes: parsed.timeoutMinutes }
       : {}),
+    ...parseRoles(parsed.roles),
+    ...(Array.isArray(parsed.checks)
+      ? { checks: parsed.checks.filter((c): c is string => typeof c === 'string' && c.trim() !== '').map((c) => c.trim()) }
+      : {}),
+    ...parseBudget(parsed.budget),
+    ...(parsed.runMode === 'auto' || parsed.runMode === 'swarm' || parsed.runMode === 'single' ? { runMode: parsed.runMode } : {}),
+    ...(typeof parsed.singleMaxNodes === 'number' && parsed.singleMaxNodes >= 0 ? { singleMaxNodes: Math.floor(parsed.singleMaxNodes) } : {}),
+    ...(typeof parsed.compileSlots === 'number' && parsed.compileSlots > 0 ? { compileSlots: Math.floor(parsed.compileSlots) } : {}),
   };
+}
+
+const ROLE_NAMES: RoleName[] = ['planner', 'blind', 'tester', 'worker', 'qa'];
+
+function parseRoles(raw: unknown): { roles?: BastionRoles } {
+  if (!raw || typeof raw !== 'object') return {};
+  const roles: BastionRoles = {};
+  for (const name of ROLE_NAMES) {
+    const v = (raw as Record<string, unknown>)[name];
+    if (typeof v === 'string' && v.trim()) roles[name] = v.trim();
+  }
+  return Object.keys(roles).length > 0 ? { roles } : {};
+}
+
+function parseBudget(raw: unknown): { budget?: BastionBudget } {
+  if (!raw || typeof raw !== 'object') return {};
+  const r = raw as Record<string, unknown>;
+  const budget: BastionBudget = {};
+  if (typeof r.maxAgentCalls === 'number' && r.maxAgentCalls > 0) budget.maxAgentCalls = Math.floor(r.maxAgentCalls);
+  if (typeof r.maxMinutes === 'number' && r.maxMinutes > 0) budget.maxMinutes = r.maxMinutes;
+  return Object.keys(budget).length > 0 ? { budget } : {};
 }
 
 export function readPlanFromDisk(repoRoot: string): BastionPlan {

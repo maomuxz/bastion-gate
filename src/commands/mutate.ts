@@ -41,16 +41,61 @@ const MUTATION_RULES: Array<{ pattern: RegExp; replace: string; label: string }>
   { pattern: /\bfalse\b/, replace: 'true', label: 'false -> true' },
 ];
 
+/**
+ * Which lines may be mutated (v1.0, F11): true for lines containing code. False for blank lines, `import ...` lines,
+ * lines that are entirely a `//` or `#` comment, and every line inside or touching only a block comment
+ * (from the line with `/*` or `/**` through the line with the closing `*\/`), including JSDoc lines starting with `*`.
+ * A line with code before a block comment opens (e.g. `x = 1; /* note`) is code; the following comment lines are not.
+ * Returns one boolean per input line.
+ */
+export function codeLineMask(lines: string[]): boolean[] {
+  let inBlock = false;
+  return lines.map((line) => {
+    let i = 0;
+    let hasCode = false;
+    if (!inBlock) {
+      const t = line.trim();
+      if (!t || t.startsWith('//') || t.startsWith('#') || t.startsWith('import ')) return false;
+    }
+    let quote = '';
+    while (i < line.length) {
+      if (inBlock) {
+        const end = line.indexOf('*/', i);
+        if (end < 0) return hasCode;
+        inBlock = false;
+        i = end + 2;
+        continue;
+      }
+      const ch = line[i];
+      if (quote) {
+        hasCode = true;
+        if (ch === '\\') i++;
+        else if (ch === quote) quote = '';
+        i++;
+        continue;
+      }
+      if (ch === '/' && line[i + 1] === '*') {
+        inBlock = true;
+        i += 2;
+        continue;
+      }
+      if (ch === '/' && line[i + 1] === '/') break;
+      if (ch === '"' || ch === "'" || ch === '`') quote = ch;
+      if (ch.trim()) hasCode = true;
+      i++;
+    }
+    return hasCode;
+  });
+}
+
 function collectMutantsForFile(relPath: string, content: string): Mutant[] {
   const lines = content.split('\n');
   const mutants: Mutant[] = [];
+  const mask = codeLineMask(lines);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#') || trimmed.startsWith('import ')) {
-      continue;
-    }
+    if (!mask[i]) continue;
 
     for (const rule of MUTATION_RULES) {
       if (!rule.pattern.test(line)) continue;

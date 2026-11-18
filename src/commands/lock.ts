@@ -8,7 +8,7 @@ import {
   readLockFromDisk,
   writeLockToDisk,
 } from '../config.js';
-import { getDirtyFiles, getRepoRoot, resolveRef } from '../git.js';
+import { execGit, getDirtyFiles, getRepoRoot, resolveRef } from '../git.js';
 import { matchesAnyGlob, runTestCommand, sha256File, walkRepoFiles } from '../runner.js';
 import { extractTestNames } from '../test-names.js';
 
@@ -94,7 +94,51 @@ export function runLock(opts: LockOptions): number {
 
   // RED-FIRST VERIFICATION: tests MUST FAIL on the baseline before locking
   console.log(`[bastion] Running red-first check: ${config.testCommand}`);
-  const run = runTestCommand(config.testCommand, repoRoot);
+  let run = runTestCommand(config.testCommand, repoRoot);
+  let redVerifiedAgainst: string | undefined;
+  if (run.exitCode === 0 && opts.amend && existingLock) {
+    const prev = existingLock.baseCommit;
+    console.log(`[bastion] Suite is green on HEAD; verifying red-first against previous baseline ${prev.slice(0, 8)}...`);
+    const wtDir = path.join(repoRoot, '.bastion', 'worktrees', `amend-check-${process.pid}-${Date.now()}`);
+    let prevRun: ReturnType<typeof runTestCommand> | null = null;
+    let failure: string | null = null;
+    try {
+      fs.mkdirSync(path.dirname(wtDir), { recursive: true });
+      const add = execGit(['worktree', 'add', '--detach', wtDir, prev], repoRoot);
+      if (add.status !== 0) {
+        failure = `cannot create temporary worktree at ${prev.slice(0, 8)}: ${add.stderr.trim()}`;
+      } else {
+        for (const rel of lockedPaths.filter((p) => matchesAnyGlob(p, config.lockedGlobs))) {
+          const dest = path.join(wtDir, rel);
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          fs.copyFileSync(path.join(repoRoot, rel), dest);
+        }
+        if (config.setupCommand) {
+          const setup = runTestCommand(config.setupCommand, wtDir);
+          if (setup.exitCode !== 0) failure = `setupCommand failed in the baseline worktree (exit ${setup.exitCode}).`;
+        }
+        if (!failure) prevRun = runTestCommand(config.testCommand, wtDir);
+      }
+    } finally {
+      execGit(['worktree', 'remove', '--force', wtDir], repoRoot);
+      if (fs.existsSync(wtDir)) fs.rmSync(wtDir, { recursive: true, force: true });
+      execGit(['worktree', 'prune'], repoRoot);
+    }
+    if (failure || !prevRun) {
+      console.error(`\n[REJECTED] Amend red-first check could not run: ${failure}`);
+      return 1;
+    }
+    if (prevRun.exitCode === 0) {
+      console.error('\n[REJECTED] Amended tests also PASS on the previous baseline: they do not strengthen anything (tautology).');
+      return 1;
+    }
+    if (!opts.allowImportError && FAKE_RED_PATTERN.test(`${prevRun.stdout}\n${prevRun.stderr}`)) {
+      console.error('\n[REJECTED] Fake-red detected on the previous baseline: failure is a SyntaxError or missing module/import, not a failing assertion!');
+      return 1;
+    }
+    run = prevRun;
+    redVerifiedAgainst = prev;
+  }
   if (run.exitCode === 0) {
     console.error('\n[REJECTED] Red-first check failed: tests PASSED (exit 0) on the baseline!');
     console.error('  A test that already passes before implementation is either a tautology or not testing new work.');
@@ -131,6 +175,7 @@ export function runLock(opts: LockOptions): number {
       reason: opts.reason.trim(),
       previousBaseCommit: existingLock.baseCommit,
       newBaseCommit: baseCommit,
+      ...(redVerifiedAgainst ? { redVerifiedAgainst } : {}),
     });
   }
 

@@ -12,6 +12,9 @@ import {
   getRepoRoot,
   resolveRef,
 } from '../git.js';
+import { runPreChecks, runPreChecksAsync } from '../checks.js';
+import { ACCEPTANCE_REL_PATH, INTERFACES_REL_PATH, MAP_REL_PATH } from '../map.js';
+import { summarizeTestOutput } from '../output.js';
 import { matchesAnyGlob, runTestCommand, runTestCommandAsync } from '../runner.js';
 
 export interface GateOptions {
@@ -35,6 +38,8 @@ function checkGateIntegrity(opts: GateOptions): {
   baseRef: string;
   resolvedBase: string;
   cmdToRun: string;
+  /** Pre-checks from the BASELINE config (v0.4). */
+  checks: string[];
 } {
   const repoRoot = getRepoRoot(opts.cwd);
   if (!repoRoot) {
@@ -67,8 +72,9 @@ function checkGateIntegrity(opts: GateOptions): {
   const violations: string[] = [];
 
   const changedCommits = getChangedFilesBetween(resolvedBase, 'HEAD', repoRoot);
+  const baselineFiles = new Set([CONFIG_REL_PATH, LOCK_REL_PATH, PLAN_REL_PATH, MAP_REL_PATH, INTERFACES_REL_PATH, ACCEPTANCE_REL_PATH]);
   for (const rel of changedCommits) {
-    if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH || rel === PLAN_REL_PATH) {
+    if (baselineFiles.has(rel)) {
       violations.push(`Baseline bastion file modified in branch: ${rel}`);
     } else if (lockedSet.has(rel) || matchesAnyGlob(rel, patterns)) {
       violations.push(`Locked test/config file modified in branch: ${rel}`);
@@ -77,7 +83,7 @@ function checkGateIntegrity(opts: GateOptions): {
 
   const dirtyFiles = getDirtyFiles(repoRoot);
   for (const rel of dirtyFiles) {
-    if (rel === CONFIG_REL_PATH || rel === LOCK_REL_PATH || rel === PLAN_REL_PATH) {
+    if (baselineFiles.has(rel)) {
       violations.push(`Uncommitted modification to bastion file: ${rel}`);
     } else if (lockedSet.has(rel) || matchesAnyGlob(rel, patterns)) {
       violations.push(`Uncommitted modification to locked file: ${rel}`);
@@ -101,12 +107,19 @@ function checkGateIntegrity(opts: GateOptions): {
     baseRef,
     resolvedBase,
     cmdToRun: opts.testCommandOverride ?? baseConfig.testCommand,
+    checks: baseConfig.checks ?? [],
   };
 }
 
-function tailLines(text: string, maxLines = 40): string {
-  const lines = text.trimEnd().split(/\r?\n/);
-  return lines.slice(-maxLines).join('\n');
+/** On PASS only a short summary is printed; on FAIL the full output is printed for humans. */
+function printRunOutput(stdout: string, stderr: string, passed: boolean): void {
+  if (passed) {
+    const summary = summarizeTestOutput(`${stdout}\n${stderr}`, 20);
+    if (summary.trim()) process.stdout.write(summary + '\n');
+    return;
+  }
+  if (stdout.trim()) process.stdout.write(stdout + (stdout.endsWith('\n') ? '' : '\n'));
+  if (stderr.trim()) process.stderr.write(stderr + (stderr.endsWith('\n') ? '' : '\n'));
 }
 
 export function runGate(opts: GateOptions): number {
@@ -114,11 +127,15 @@ export function runGate(opts: GateOptions): number {
   if (!check.ok) return 1;
 
   console.log(`[bastion] Integrity OK against ${check.baseRef} (${check.resolvedBase.slice(0, 8)}).`);
+  const pre = runPreChecks(check.checks, check.repoRoot);
+  if (!pre.ok) {
+    console.error(`[bastion] GATE FAIL: pre-check failed: ${pre.failedCommand ?? '(unknown)'}
+${pre.feedback}`);
+    return 1;
+  }
   console.log(`[bastion] Running baseline testCommand: ${check.cmdToRun}`);
   const run = runTestCommand(check.cmdToRun, check.repoRoot);
-
-  if (run.stdout.trim()) process.stdout.write(run.stdout + (run.stdout.endsWith('\n') ? '' : '\n'));
-  if (run.stderr.trim()) process.stderr.write(run.stderr + (run.stderr.endsWith('\n') ? '' : '\n'));
+  printRunOutput(run.stdout, run.stderr, run.exitCode === 0);
 
   if (run.exitCode !== 0) {
     console.error(`\n[bastion] GATE FAIL: testCommand exited with code ${run.exitCode} (${run.durationMs}ms).`);
@@ -135,15 +152,20 @@ export async function runGateAsync(opts: GateOptions): Promise<GateResult> {
   if (!check.ok) return { exitCode: 1, feedback: check.feedback };
 
   console.log(`[bastion] Integrity OK against ${check.baseRef} (${check.resolvedBase.slice(0, 8)}).`);
+  const pre = await runPreChecksAsync(check.checks, check.repoRoot);
+  if (!pre.ok) {
+    const feedback = `Pre-check "${pre.failedCommand ?? '(unknown)'}" failed:
+${pre.feedback}`;
+    console.error(`[bastion] GATE FAIL: ${feedback}`);
+    return { exitCode: 1, feedback };
+  }
   console.log(`[bastion] Running baseline testCommand: ${check.cmdToRun}`);
   const run = await runTestCommandAsync(check.cmdToRun, check.repoRoot);
-
-  if (run.stdout.trim()) process.stdout.write(run.stdout + (run.stdout.endsWith('\n') ? '' : '\n'));
-  if (run.stderr.trim()) process.stderr.write(run.stderr + (run.stderr.endsWith('\n') ? '' : '\n'));
+  printRunOutput(run.stdout, run.stderr, run.exitCode === 0);
 
   if (run.exitCode !== 0) {
     const combined = `${run.stdout}\n${run.stderr}`.trim();
-    const feedback = `Test command "${check.cmdToRun}" failed (exit ${run.exitCode}):\n${tailLines(combined, 40)}`;
+    const feedback = `Test command "${check.cmdToRun}" failed (exit ${run.exitCode}):\n${summarizeTestOutput(combined, 40)}`;
     console.error(`\n[bastion] GATE FAIL: testCommand exited with code ${run.exitCode} (${run.durationMs}ms).`);
     return { exitCode: 1, feedback };
   }

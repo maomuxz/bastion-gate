@@ -103,7 +103,38 @@ function parseConfigJson(raw, label) {
         ...(typeof parsed.timeoutMinutes === 'number' && parsed.timeoutMinutes > 0
             ? { timeoutMinutes: parsed.timeoutMinutes }
             : {}),
+        ...parseRoles(parsed.roles),
+        ...(Array.isArray(parsed.checks)
+            ? { checks: parsed.checks.filter((c) => typeof c === 'string' && c.trim() !== '').map((c) => c.trim()) }
+            : {}),
+        ...parseBudget(parsed.budget),
+        ...(parsed.runMode === 'auto' || parsed.runMode === 'swarm' || parsed.runMode === 'single' ? { runMode: parsed.runMode } : {}),
+        ...(typeof parsed.singleMaxNodes === 'number' && parsed.singleMaxNodes >= 0 ? { singleMaxNodes: Math.floor(parsed.singleMaxNodes) } : {}),
+        ...(typeof parsed.compileSlots === 'number' && parsed.compileSlots > 0 ? { compileSlots: Math.floor(parsed.compileSlots) } : {}),
     };
+}
+const ROLE_NAMES = ['planner', 'blind', 'tester', 'worker', 'qa'];
+function parseRoles(raw) {
+    if (!raw || typeof raw !== 'object')
+        return {};
+    const roles = {};
+    for (const name of ROLE_NAMES) {
+        const v = raw[name];
+        if (typeof v === 'string' && v.trim())
+            roles[name] = v.trim();
+    }
+    return Object.keys(roles).length > 0 ? { roles } : {};
+}
+function parseBudget(raw) {
+    if (!raw || typeof raw !== 'object')
+        return {};
+    const r = raw;
+    const budget = {};
+    if (typeof r.maxAgentCalls === 'number' && r.maxAgentCalls > 0)
+        budget.maxAgentCalls = Math.floor(r.maxAgentCalls);
+    if (typeof r.maxMinutes === 'number' && r.maxMinutes > 0)
+        budget.maxMinutes = r.maxMinutes;
+    return Object.keys(budget).length > 0 ? { budget } : {};
 }
 export function readPlanFromDisk(repoRoot) {
     const fullPath = path.join(repoRoot, PLAN_REL_PATH);

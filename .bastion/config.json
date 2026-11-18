@@ -24,5 +24,11 @@
     "**/conftest.py",
     "**/fixtures/**",
     "**/__snapshots__/**"
-  ]
+  ],
+  "setupCommand": "npm ci --no-audit --no-fund",
+  "agentCommand": "node scripts/dogfood-agent.mjs",
+  "concurrency": 3,
+  "maxRetries": 2,
+  "verifyRuns": 3,
+  "timeoutMinutes": 30
 }

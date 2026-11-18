@@ -19,7 +19,7 @@ function readPackageVersion(): string {
   } catch {
     // fallback
   }
-  return '0.3.0';
+  return '1.0.0';
 }
 
 export const BASTION_VERSION = readPackageVersion();

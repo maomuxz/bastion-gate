@@ -8,6 +8,7 @@
 
 - **Works with any AI CLI or model**: plug in Claude Code, Codex, Gemini CLI, or any script via `agentCommand` — no vendor lock-in, no multi-model requirement
 - **Hard Test Gate (`init` + `lock` + `gate` + `mutate`)**: red-first & anti-fake-red locking (rejects syntax/import-error fake reds), `.bastion/acceptance.md` checklist display, baseline-ref config enforcement, lightweight mutation spot-checks, and `audit` for local-only repos
+- **API Cheatsheet & Compile/Rule Check (`sheet` + `check`)**: extracts a short public interface cheatsheet from project code (currently Dart) and runs the project's own compiler check plus locked rule checks on a change, producing a bare line-and-rule report for up to two rework rounds
 - **Parallel Swarm Engine (`plan` + `run`, advanced)**: DAG wave scheduling, isolated `git worktree` sandboxes, `setupCommand` per worktree, concurrency throttling, automatic gate-feedback retry loops, `.bastion/disputes/<nodeId>.md` human-review pause channel, and N-pass post-merge verification
 - **Scope & Target Audience**: Built for engineers and leads who can review a plain-language acceptance list. Bastion guarantees your agent didn't move the goalposts — not that the goalposts were placed in the right spot. (Tip: use a separate session/model to write tests vs. implementation.)
 - **Prerequisites**: **Node.js >= 18** and **Git >= 2.5** (for worktrees). Zero runtime dependencies. Built with Claude & Antigravity, and dogfooded by Bastion itself.
@@ -37,6 +38,32 @@ What this means:
 - One target, one model, one run per setup: the 84 vs 86 difference is a single bug and should not be read as a stable gap.
 
 Since v1.1 the default preset (`village`) keeps only the wall (tests written from the requirement and locked, a gap check before the lock, the gate, a QA step that really runs the product, the audit) around one construction session, and leaves planning and parallel work switched off. Larger presets (`city`, `capital`) switch them on; none of those switches has been shown to pay for itself yet.
+
+## One measurement: cheatsheet plus check
+
+The `sheet` and `check` commands were written only after the test below. The numbers are here, including the parts that did not go well.
+
+The test: one private Flutter desktop app, 10 real single-file tasks (5 edits to existing files, 5 new modules), two cheap models (`deepseek-flash` and `deepseek-v4-pro`, thinking turned off), 3 runs per task, 60 runs per setup in total. "All passed" means all three passed: `dart analyze` compilation, the project's existing rule checks, and functional tests that the builder never saw.
+
+| What the model was given | Compiled | All passed |
+| --- | --- | --- |
+| The project's existing docs (about 50k Chinese characters) | 19/60 | 12/60 |
+| A cheatsheet extracted from source code by a script (105 lines) | 36/60 | 35/60 |
+| The cheatsheet, sending errors back on failure, at most 2 rounds | 58/60 | 44/60 |
+
+What this shows:
+
+- Replacing tens of thousands of words of prose docs with a short sheet extracted from code made code from cheap models much more likely to compile. Average input dropped from about 31k tokens per call to about 4,800.
+- Adding "send errors back when checks fail" raised the all-passed count further. Total spend for the sheet plus retries was roughly the same as running once with the long docs.
+- Reporting only "which file and line, and which rule was violated" produced the same final all-passed count as also telling the model how to fix it (44/60 in both cases).
+
+What this does not show, and what did not hold up:
+
+- **It cannot catch errors that only happen at runtime.** On two tasks that built new UI screens, all four setups scored 0 on all-passed: the code compiled, then failed as soon as it ran. On post-hoc inspection, 3 of those 12 failures were caused by functional tests that were written too strictly.
+- **It was not compared against stronger models.** All we can say here is "better than giving long docs", not "caught up with pricier models".
+- We set a bar in advance: at least half of the drafts that failed the check had to end up all-passed after retries. The actual number was 9/25, which missed that bar.
+- We also tried having a model turn plain-language rules into check scripts automatically: only 4 out of 18 were usable, and when calibrating against existing code it treated existing bugs in the repo as normal style. That is why `check` only runs checks already written and locked in the project, and does not generate checks for you.
+- Only one project and 10 tasks were tested, and both the tasks and the functional tests were written by the person running the experiment. The cheatsheet used in the test had a bug (missing `static` on static methods) that caused part of the compile errors; the current `sheet` command fixes that.
 
 ## Quick Start (Test Gate)
 
@@ -113,6 +140,10 @@ npx bastion-gate run --setup "npm ci" --agent "claude -p < {promptFile}" --concu
 
 - `bastion init [--test-cmd "<cmd>"] [--base <branch>] [--force]`  
   Auto-detects `pytest`, `go test ./...`, `cargo test`, `flutter test`, or `npm test` and current git branch; updates `.gitignore`, creates `.bastion/config.json`, `AGENTS.md`, `.agents/skills/bastion-gate/SKILL.md`, and `.github/workflows/bastion.yml`.
+- `bastion sheet [--config <path>] [--out <path>] [--check]`  
+  Extracts a short public API cheatsheet from configured project entrypoints (currently Dart; `--check` checks whether the file on disk is up to date). See [`docs/sheet-and-check.md`](docs/sheet-and-check.md).
+- `bastion check [--config <path>] [--base <ref>] [--lock] [--agent "<cmd>"] [--max-retries <0..2>] [--json] [files...]`  
+  Runs the project's compile check and locked hard-rule checks, outputting a bare `file:line [rule]` report without fix hints (up to 2 rework rounds when `--agent` is set). See [`docs/sheet-and-check.md`](docs/sheet-and-check.md).
 - `bastion lock [--base <ref>] [--amend --reason "<why>"] [--allow-dirty] [files...]`  
   Runs `testCommand` on baseline, rejects green tests, locks git-tracked test files + configs/fixtures (`conftest.py`, `package.json`, `vitest.config.*`, etc.), and prints a plain-language list of locked test names.
 - `bastion gate [--base <ref>]`  

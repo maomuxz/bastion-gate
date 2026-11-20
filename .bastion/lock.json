@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "lockedAt": "2026-11-18T10:11:10.818Z",
-  "baseCommit": "6ccd2cfe89e37a10c2211144b23cba1263e61dee",
+  "lockedAt": "2026-11-19T03:12:00.539Z",
+  "baseCommit": "a70177f02d1fa4340c76a834e2a1831842a4314c",
   "testCommand": "npm test",
   "redVerified": {
     "exitCode": 1,
@@ -15,10 +15,6 @@
     {
       "path": "package.json",
       "sha256": "f987beb0e8d6634cd56431f9a8c8b8e9fa8fdaa1a87ffc03cd4d78b26b12f80f"
-    },
-    {
-      "path": "scripts/dogfood-agent.mjs",
-      "sha256": "7e9a263c347c0af9eeb0d586e1563b12f5d6ffb1a5b111e976ff0477b8c48a0e"
     },
     {
       "path": "tests/bastion.test.ts",
@@ -78,7 +74,7 @@
     },
     {
       "path": "tests/v1-flow.test.ts",
-      "sha256": "ab8454c7a36a354213ed6df96b93ed72154800f39038a8acfb2a6a89368c2f4e"
+      "sha256": "4538089036defebf1e2bed1cde137e7c603e400ee91c28da39e3715aed0ba9bf"
     },
     {
       "path": "tests/v1-helpers.ts",
@@ -102,7 +98,7 @@
     },
     {
       "path": "tests/v1-qa.test.ts",
-      "sha256": "b8dee7d679a80293ba0a13ba92c3dd457fcdfbc85d0edc030084c05d02365915"
+      "sha256": "5fd9b4e190ae9fae113c984ede8e5798532017eedc31ac7aa99b899ca16a904d"
     },
     {
       "path": "tests/v1-readme.test.ts",
@@ -110,7 +106,7 @@
     },
     {
       "path": "tests/v1-regress.test.ts",
-      "sha256": "988f480999e0de78b7ac273a53564bc59090b0d43e4584b53b620343004c2323"
+      "sha256": "cb5b0865617ecc178b7b83b616f3fead883674cfcda069c0e4182c320b757401"
     },
     {
       "path": "tests/v1-review.test.ts",
@@ -135,6 +131,90 @@
     {
       "path": "tests/v1-tests-cmd.test.ts",
       "sha256": "9766d584897e881058d01cf04c9d58e7e81d6a294df7e63fc285d3d0cfd8ebba"
+    },
+    {
+      "path": "tests/v11-contract.test.ts",
+      "sha256": "d80a11601747f22c94ed5bbb5ffe733e29d81fa71a42b4ebc78438aad8e00c2e"
+    },
+    {
+      "path": "tests/v11-flow-switches.test.ts",
+      "sha256": "ce2cd894781b2be424031eb15abcd60ded951017619de5543b664b8b20ac9fa4"
+    },
+    {
+      "path": "tests/v11-gaps-cmd.test.ts",
+      "sha256": "c5d505a7c5fc4fe29a526c4f4de5f9cea52bbd60027061cba446d16a0e6d1be5"
+    },
+    {
+      "path": "tests/v11-gaps-core.test.ts",
+      "sha256": "7fcd0afffe3413b0d659875c35bfc69b57b0186ab64d001ded134cdea856427a"
+    },
+    {
+      "path": "tests/v11-hard-audit.test.ts",
+      "sha256": "a7b8fe15bd29317e0133d890a44fbcf86f555e201a8677aa4e95fb10cafcebe2"
+    },
+    {
+      "path": "tests/v11-hard-gaps.test.ts",
+      "sha256": "89d5d2fa898fdf0e4fddba7ee7f1e05e4654b14a93bd4f6f2d57e26852021e22"
+    },
+    {
+      "path": "tests/v11-hard-qa.test.ts",
+      "sha256": "aad05dc9c1eea26322879ca3411d9e564492428b6387a7fbcef4f3e6614a5559"
+    },
+    {
+      "path": "tests/v11-hard-run.test.ts",
+      "sha256": "93824783065ada93878313debf9fd3059287ae8fe8de339678ed3c8cc7bc38af"
+    },
+    {
+      "path": "tests/v11-hard-tests.test.ts",
+      "sha256": "c56e33845fde10b9572cf3dbb627db415680cdfcf08448949b8f224b23440ec8"
+    },
+    {
+      "path": "tests/v11-hygiene.test.ts",
+      "sha256": "5703ffb47ace66fad6b85fb3c86ec750dd982242a284e09c4f64138c1932d4c7"
+    },
+    {
+      "path": "tests/v11-imports.test.ts",
+      "sha256": "cbed8638c24e7a76788ae054aec21abccb173029753794f5c4214d19f0833e1b"
+    },
+    {
+      "path": "tests/v11-map-single.test.ts",
+      "sha256": "81349e0a8193245db05c1885876c16dea8cfa9495c41a0d7d9b26494c672adc3"
+    },
+    {
+      "path": "tests/v11-mutate-timeout.test.ts",
+      "sha256": "188b01899e69cbd960dc77d986a7d8abe4386760146293d8f48799d427a8f8b9"
+    },
+    {
+      "path": "tests/v11-qa.test.ts",
+      "sha256": "713e2970879663ab00de5df3d5ada505b91c2cd78099db754037eedb20f473f6"
+    },
+    {
+      "path": "tests/v11-reopen.test.ts",
+      "sha256": "5ab2dae20a0d05a68af57dbd61ff35e0c5afe18f2ae39cecc352bb6067721081"
+    },
+    {
+      "path": "tests/v11-run-fixes.test.ts",
+      "sha256": "0b7417ce55235005356c4b7cd2148e0800dee8ff2fd2766b988de47381c5ee31"
+    },
+    {
+      "path": "tests/v11-run-switches.test.ts",
+      "sha256": "45d0b227e6cced9b2db4169499d2f422de47ed0732422b130d978a11ef3efbfa"
+    },
+    {
+      "path": "tests/v11-stage.test.ts",
+      "sha256": "2bcec5afd5bdbf9d60ab8a4ec9dc717673036774c028abf4e4ed6c7687267fd9"
+    },
+    {
+      "path": "tests/v11-switches.test.ts",
+      "sha256": "22de181344ee642f689ef07aa48116a4454f5d7c20931d521da6c1a0c43ae057"
+    },
+    {
+      "path": "tests/v11-tests-gaps.test.ts",
+      "sha256": "4a7a5f44829094578f0f682225210eaf5f9c84579309329fdb61c5eb5bfb4709"
+    },
+    {
+      "path": "tests/v11-wall.test.ts",
+      "sha256": "356606f4ac3bc74f1f3ff28a17e38bfd05504af3db775409c3d98affc1bfde47"
     },
     {
       "path": "tsconfig.json",
@@ -436,10 +516,9 @@
         "accepts pass and fail reports and returns them intact",
         "rejects anything that is not a well-formed report",
         "v1.0 runQa",
-        "returns 1 without calling the role when there is no run-state",
-        "returns 1 without calling the role when acceptance.md is missing",
-        "pass: returns 0, changes nothing, and tells the role the acceptance list and the integration diff",
-        "cuts the diff handed to the role to 200 KB",
+        "v1.1: without a run-state qa runs standalone against HEAD - the role is called and no run-state is created",
+        "v1.1: a missing acceptance.md is not an error - the role is called and the acceptance section is left out",
+        "pass: returns 0, changes nothing, and tells the role the acceptance list",
         "invalid report: returns 1 and reopens nothing",
         "role that writes no report: returns 1 and reopens nothing",
         "fail with a code finding: reopens only that node, writes its feedback, returns 1 and says what to do",
@@ -573,6 +652,581 @@
         "runs testers in parallel by default (concurrency 2)",
         "concurrency 1 runs testers strictly one after another"
       ]
+    },
+    {
+      "file": "tests/v11-contract.test.ts",
+      "names": [
+        "v1.1 parseContractOutput",
+        "returns the cleaned value for a valid output",
+        "normalises backslashes in files and testFile to \"/\"",
+        "rejects anything that is not an object",
+        "rejects a bad `files`",
+        "rejects a bad `testFile`, including one that is in `files` (also after backslash normalisation)",
+        "rejects a blank `interface` (whitespace only counts as blank)",
+        "rejects a bad `acceptance`",
+        "v1.1 runContract success",
+        "step 1: writes the requirement verbatim to .bastion/requirement.md",
+        "step 2: calls the planner role once, labelled \"contract\", with the prompt the contract describes",
+        "step 3: files under .bastion/ and a stray-looking untracked file inside .bastion are tolerated",
+        "step 4: builds the exact one-node map, and readMap accepts it",
+        "step 4: writes interfaces.md, acceptance.md, plan.json and the exact map-diff.md text",
+        "step 5: approves the map without a human stop (by: \"village-tier\", sha of map.json)",
+        "step 6: commits the stub files only, with the contract message, leaving no stub uncommitted",
+        "prints \"[bastion] contract: <n> stub file(s), tests will go to <testFile>.\"",
+        "removes an old output first: a stale contract.json cannot stand in for a role that wrote none",
+        "v1.1 runContract step 1 failures",
+        "a blank requirement fails without calling the role",
+        "outside a git repository it fails with exit 1",
+        "without a readable config it fails with exit 1 and does not call a role",
+        "v1.1 runContract step 3 failures (each returns 1, names the problem, commits nothing)",
+        "role exits non-zero, even though it wrote a valid output and the stubs",
+        "output that parseContractOutput rejects (testFile listed in files)",
+        "role wrote no output at all",
+        "a listed stub file is missing",
+        "a listed stub file is empty",
+        "the testFile already exists",
+        "the role created the testFile itself",
+        "the role edited a tracked file that is not in the list, and the error names it",
+        "the role left an untracked file outside the list (even nested), and the error names the full path",
+        "v1.1 runContract commit identity",
+        "commits as bastion <bastion@local> when the repo has no user.email, without persisting an identity",
+        "keeps the configured identity when there is one"
+      ]
+    },
+    {
+      "file": "tests/v11-flow-switches.test.ts",
+      "names": [
+        "v1.1 flow: village (default tier)",
+        "one call, no approval stop, a contract instead of map+scaffold; tier line and the 4 hints are printed",
+        "the hints are printed on the first call only; later calls still print the tier line",
+        "an explicit --tier village does not print the hints",
+        "v1.1 flow: city",
+        "one planner (no blind), stops for approval; after approve builds n1 before n2 with a scaffold",
+        "a split flag on a node is ignored in city (switch off)",
+        "switches { split: true } on city honours the flag",
+        "v1.1 flow: capital",
+        "one planner by default (secondMap off), then the approval stop",
+        "switches { secondMap: true } calls planner and blind",
+        "splits a node flagged split: true before the approval stop, in map order, with the same planner count",
+        "with secondMap on the split asks both planners",
+        "switches { split: false } leaves the flag alone",
+        "a failing split returns its code",
+        "v1.1 flow: overrides",
+        "city with approval: false approves itself and finishes in one call",
+        "scaffold: false skips the scaffold call; without existing interface files the flow stops at the lock",
+        "${name} returns 1 with the error and no role call",
+        "v1.1 flow: fixed for the run",
+        "stores tier and switches in flow-state.json",
+        "changing config.switches after the first call changes nothing",
+        "a different --tier later returns 1 with the chooseTier error and no role call",
+        "also when the flow is already done",
+        "a v1.0 state file { stages: [map] } counts as capital with secondMap on",
+        "a v1.0 state file { stages: [] } counts as nothing recorded",
+        "a v1.0 state file with no stages accepts any --tier"
+      ]
+    },
+    {
+      "file": "tests/v11-gaps-cmd.test.ts",
+      "names": [
+        "findGaps normal mode",
+        "sends only the requirement and the test files to the critic, and returns kept gaps",
+        "splits gaps by quote: case/whitespace-insensitive match is kept, an invented quote is discarded",
+        "cleans the report: trims rule/quote and drops an empty file",
+        "{\"gaps\":[]} is ok with nothing kept",
+        "testFiles overrides the lock and skips files that do not exist",
+        "uses the locked test files, each once; a locked file that is gone from disk is skipped",
+        "findGaps fails closed",
+        "missing requirement -> !ok, critic never called",
+        "blank requirement -> !ok",
+        "no readable test file -> !ok, critic never called",
+        "no lock.json -> !ok, critic never called, the error points at bastion lock (also through runGaps)",
+        "critic exit 1 -> !ok even though it wrote an empty valid report",
+        "critic writes no report -> !ok, and an old report is not reused",
+        "invalid report (${name}) -> !ok",
+        "findGaps probe mode",
+        "hides the middle case (index floor(count/2)) from the critic only; files stay byte-identical",
+        "judge prompt shows the removed source and only the numbered kept gaps; detected follows the judge",
+        "no kept gap -> detected false without a judge call (empty and all-discarded)",
+        "drop picks the case; a case name containing \"::\" works; a missing file is not touched",
+        "bad drop (${name}) -> !ok without calling the critic",
+        "a suite with no test case at all -> !ok",
+        "probe critic failure or invalid report -> !ok, no judge",
+        "judge failure or invalid judge JSON -> !ok (never a silent \"detected\")",
+        "runGaps",
+        "prints each kept gap, writes gaps.md and returns 1",
+        "no gaps -> \"none found\", return 0, gaps.md says so",
+        "a report whose gaps are all discarded does not count as a clean pass (round 5)",
+        "fails closed with a message on stderr: missing requirement, critic failure",
+        "not a git repo or unreadable config -> 1 with stderr",
+        "probe detected -> 0, prints the detected line, does not write gaps.md",
+        "probe missed -> 1, stderr has the MISSED line and the redundancy hint, no gaps.md",
+        "probe with a bad drop -> 1 and stderr"
+      ]
+    },
+    {
+      "file": "tests/v11-gaps-core.test.ts",
+      "names": [
+        "listTestCases",
+        "lists test/it names in source order, with .only/.skip/.todo, all quote kinds",
+        "does not count describe/group blocks but does count the cases inside them (nested)",
+        "ignores calls inside comments and string/template literals, and look-alike identifiers",
+        "keeps names exactly as written: no trimming, duplicates kept, escapes not interpreted",
+        "finds cases that follow tricky code (an apostrophe in a comment, a template with ${})",
+        "returns an empty list for a source without cases",
+        "removeTestCase",
+        "removes a whole line: indentation before the call stays, `;` and the line break go",
+        "handles no trailing newline, no semicolon, CRLF and trailing whitespace",
+        "keeps the rest of the line when something else follows the call",
+        "matches parentheses through strings, templates with ${...}, // and block comments",
+        "works inside nested describe blocks and leaves siblings alone",
+        "removes test.skip / it.only calls from the modifier start",
+        "includes a trailing options object (before or after the callback) in the span",
+        "removes only the first of two cases with the same name",
+        "matches the name exactly as written (escapes untouched, no prefix/substring match)",
+        "returns null for unknown names, names only in comments/strings/describe, look-alikes, and unclosed calls",
+        "preserves every other character, for every case in a mixed source",
+        "parseGapsReport",
+        "accepts a valid report, trims rule/quote, keeps file, ignores extra keys",
+        "accepts an empty gaps array",
+        "drops an empty or non-string file instead of failing",
+        "rejects anything that is not a well-formed report",
+        "checkQuotes",
+        "keeps quotes that differ from the requirement only in whitespace or case",
+        "discards quotes that are not contiguous text of the requirement, preserving order",
+        "handles an empty report and returns the gap objects unchanged",
+        "buildCriticPrompt",
+        "has instruction block, then ## Requirement (verbatim), then ## Tests with ### <file> and verbatim content, in order",
+        "instructions tell the critic the rules of the job and where to write JSON",
+        "does not mention interfaces.md, the map or any design document",
+        "still has both sections when there are no test files",
+        "renderGapsMarkdown",
+        "renders the no-gaps record",
+        "renders kept gaps with file or \"-\" and the indented quote line",
+        "adds a ## Discarded list after ## Gaps in the same item form",
+        "with only discarded gaps it does not claim \"No gaps found.\"",
+        "appends the note as a final paragraph, in both the empty and the non-empty case"
+      ]
+    },
+    {
+      "file": "tests/v11-hard-audit.test.ts",
+      "names": [
+        "v1.1 round 5 audit: skipped merges leave a trace",
+        "a repo whose only merge predates the lock prints [SKIP] and \"no merge could be checked (1 skipped)\", not the clean line, exit 0",
+        "every merge skipped (2 of 2) reports the skipped count, never the clean line",
+        "one merge before the lock and one clean merge after: SKIP, usual final line, then \"1 merge(s) checked, 1 skipped\"",
+        "counts: 2 skipped + 2 checked -> \"2 merge(s) checked, 2 skipped\"",
+        "only checked merges: output has no SKIP and no extra summary line",
+        "a bypass after the lock plus a skipped merge still exits 1 and reports the bypass (no \"checked/skipped\" or \"all skipped\" line)"
+      ]
+    },
+    {
+      "file": "tests/v11-hard-gaps.test.ts",
+      "names": [
+        "checkQuotes - normalisation",
+        "full-width vs ASCII punctuation in a Chinese requirement, both directions",
+        "full-width letters and digits fold to ASCII",
+        "markdown markers present on one side only",
+        "curly vs straight quotes, both directions",
+        "a quote that is only markers / whitespace is discarded; an empty one too",
+        "an invented quote is discarded",
+        "order is preserved across kept and discarded",
+        "checkQuotes - ellipsis",
+        "\"...\" keeps a quote whose pieces occur in order",
+        "the U+2026 character works the same way",
+        "a leading or trailing ellipsis leaves one real piece",
+        "a quote that is only ellipses is discarded",
+        "discarded when a piece is missing",
+        "discarded when the pieces occur in the wrong order",
+        "pieces must not overlap",
+        "each piece matches after the end of the previous one, not at its last occurrence",
+        "normalisation applies inside pieces; two dots are not an ellipsis",
+        "findGaps / runGaps - round 5 contract",
+        "every reported gap discarded -> not ok with the exact error; runGaps returns 1 and prints it",
+        "a single reported gap that is discarded uses n = 1",
+        "one good and one invented gap -> ok, kept 1, discarded 1, stderr line with n = 1",
+        "the stderr line counts every dropped gap",
+        "zero reported gaps -> ok, nothing kept or discarded, no stderr line",
+        "only good gaps -> ok and no stderr line",
+        "a sloppy quote (markers, ellipsis) is kept through findGaps instead of dropped"
+      ]
+    },
+    {
+      "file": "tests/v11-hard-qa.test.ts",
+      "names": [
+        "v1.1 hardening Q1: the qa role must not change the checkout",
+        "modifying a tracked product file is refused even though the case only passes thanks to it",
+        "adding an untracked file outside .bastion is refused",
+        "deleting a tracked file is refused",
+        "names only the product paths when the role also wrote under .bastion/",
+        "lists at most 5 paths",
+        "a role that only writes under .bastion/ still passes",
+        "v1.1 hardening Q2: a fail verdict without findings still fails",
+        "verdict fail, no findings, a passing case -> 1 with the stderr line, files written, nothing reopened",
+        "verdict pass, no findings, a passing case -> 0 without the line",
+        "a fail verdict that comes with a code finding is the ordinary failure, not the Q2 line"
+      ]
+    },
+    {
+      "file": "tests/v11-hard-run.test.ts",
+      "names": [
+        "v1.1 killProcessTree",
+        "kills the process AND the never-ending child it started",
+        "does not throw for a pid that does not exist",
+        "v1.1 runTestCommandAsync timeout",
+        "kills a never-ending grandchild that holds stdout, and resolves with 124 well within 15 s",
+        "a command that finishes in time is unchanged",
+        "v1.1 run (g): single-mode feedback",
+        "the prompt carries `### <id>` + content for each node that has feedback, nothing for the others; files are gone after a pass",
+        "plan order, all-nodes.md still included, empty/whitespace feedback files get no heading",
+        "swarm mode: a node prompt contains only its own feedback",
+        "v1.1 run (h): agent timeout takes the process tree down",
+        "a hung agent with a surviving grandchild: runSwarm returns, node not completed, grandchild gone"
+      ]
+    },
+    {
+      "file": "tests/v11-hard-tests.test.ts",
+      "names": [
+        "H1: a skipped gap check is loud and recorded",
+        "${name} with lock: line on stderr, exact gaps.md committed with the lock, exit 0",
+        "gaps:false prints no skip line and writes no gaps.md",
+        "without lock nothing is printed or written either",
+        "H2: a gap patch must add cases, keep every old case and touch only its own file",
+        "a comment-only patch added no case",
+        "a commented-out test() call is not a new case",
+        "replacing one case by another (same count) reports the removed name",
+        "adding a case while removing/renaming old ones lists every missing name",
+        "editing another node\\'s test file is rejected even if the own file got a new case",
+        "good path: two new cases -> 0, committed, locked, note says (2 new case(s))",
+        "the new-case count is the total over all patched files",
+        "H3: the dependency scan is fatal when it fails or finds a cycle",
+        "an unparsable plan.json -> 1, stderr line, nothing committed or locked",
+        "an unparsable plan.json also fails without --lock",
+        "a cycle (n1 test imports n2 file, n2 depends on n1) prints the line and returns 1"
+      ]
+    },
+    {
+      "file": "tests/v11-hygiene.test.ts",
+      "names": [
+        "v1.1 contentHash / hashMatches",
+        "contentHash is the sha256 of the buffer with every CRLF turned into LF",
+        "contentHash leaves a lone CR alone and replaces CRLF only once (\"\\\\r\\\\r\\\\n\" -> \"\\\\r\\\\n\")",
+        "contentHash hashes a buffer with a NUL byte as is, even if it contains CRLF",
+        "hashMatches accepts the normalised hash, the raw hash and the hash of the CRLF-expanded buffer",
+        "the CRLF expansion touches only LF that has no CR before it",
+        "hashMatches is case-insensitive on the hex string",
+        "hashMatches rejects other content, an empty or malformed string and a lone-CR variant",
+        "hashMatches on a binary buffer accepts only its raw hash",
+        "v1.1 lock hashes are line-ending independent",
+        "runLock records the hash of the LF text for a test file that has CRLF on disk",
+        "runLock gives the same hash for the same test with LF endings",
+        "v1.1 audit with CRLF working copies",
+        "reports an amendment whose lock was written from a CRLF working copy as authorised, exit 0",
+        "still accepts a lock written by <= 1.0, which hashed the CRLF working copy raw",
+        "still fails when the merged test differs from what the CRLF lock recorded",
+        "v1.1 runTests dependency scan",
+        "adds the dependency the planner forgot, prints it, commits plan.json with the tests and leaves map.json alone",
+        "also scans when --lock is set and puts plan.json into the test commit, not the lock commit",
+        "prints nothing and leaves plan.json and the commit alone when no dependency is missing",
+        "does nothing and does not fail when there is no plan.json",
+        "an import that would close a cycle is reported and returns 1 (round 5, H3); plan.json and map.json unchanged",
+        "v1.1 commits without a git identity",
+        "runScaffold commits as bastion@local and does not write an identity into the repo config",
+        "runTests({ lock: true }) makes both commits as bastion@local",
+        "runTests without lock commits as bastion@local too",
+        "puts the process environment back after the helper (guard for the other tests)",
+        "v1.1 commits with a configured identity keep that identity",
+        "runScaffold and runTests({ lock: true }) commit as the configured user",
+        "v1.1 flow \"approved map\" commit identity",
+        "is made with the configured identity, not forced to bastion@local",
+        "falls back to bastion@local when no identity is configured"
+      ]
+    },
+    {
+      "file": "tests/v11-imports.test.ts",
+      "names": [
+        "v1.1 relativeImports",
+        "finds static, side-effect, export-from, dynamic and require specifiers in source order",
+        "leaves out bare and absolute specifiers",
+        "ignores specifiers inside // and block comments, including multi-line ones",
+        "does not mistake \"//\" inside a string for a comment",
+        "handles multi-line import lists and type-only imports",
+        "lists a specifier once even when it is used several times",
+        "ignores non-literal arguments, plain exports and identifiers that merely end in \"require\"",
+        "returns [] for an empty source",
+        "v1.1 resolveImport",
+        "gives the path and its ts-family siblings for a .js specifier",
+        "maps .mjs only to .mts",
+        "tries extensions and index files for an extensionless specifier, in order",
+        "gives only the path itself for other extensions",
+        "resolves \"..\" and \".\" segments against the importing directory",
+        "accepts backslashes in the importing file and resolves a file at the repo root",
+        "gives [] when the specifier escapes the repo root",
+        "has no duplicate candidates",
+        "v1.1 findMissingDeps",
+        "reports a node whose test imports a file owned by a node it does not depend on",
+        "reports nothing for direct or transitive dependencies, own files and unowned files",
+        "gives one MissingDep per (node, needs) pair, with the first via in import order",
+        "resolves .js imports to .ts files and extensionless imports to index files",
+        "uses the first resolution candidate that some node owns",
+        "skips nodes whose test file is absent from `tests` and compares paths with forward slashes",
+        "orders results by map node order, then import order",
+        "reports an edge that would close a direct cycle in `cycles`, not in `missing`",
+        "detects a transitive cycle",
+        "counts edges found earlier in the same call when looking for cycles",
+        "does not change the map",
+        "v1.1 addDepsToPlan",
+        "appends to an existing dependsOn and creates it when absent, keeping every other field",
+        "leaves the input plan untouched and returns a copy",
+        "adds no duplicates, neither against existing deps nor among the additions",
+        "ignores unknown node ids and an empty list"
+      ]
+    },
+    {
+      "file": "tests/v11-map-single.test.ts",
+      "names": [
+        "v1.1 map planners:1",
+        "calls only the planner, writes no map-b.json, exact single-map diff and all usual outputs",
+        "replaces a stale map-b.json / map-diff.md from an earlier two-planner run",
+        "works when no blind command differs: blind role fixture absent is never needed",
+        "invalid planner map still -> 1 with errors printed and no outputs",
+        "planner that writes no output -> 1 after a single call",
+        "splitting with parent + planners:1 calls exactly one role and splits the node",
+        "split with an invalid sub-map and planners:1 -> 1, map.json unchanged",
+        "v1.1 map planners:2 / undefined keep v1.0 behaviour",
+        "planners ${String(planners)}: both roles called and the old diff is written",
+        "planners 2 with parent calls both roles"
+      ]
+    },
+    {
+      "file": "tests/v11-mutate-timeout.test.ts",
+      "names": [
+        "v1.1 runTestCommand timeout",
+        "a command that finishes in time keeps its exit code and output, timedOut is not true",
+        "large output of a command that finishes in time is relayed completely",
+        "without a positive timeoutMs a quick command behaves as before",
+        "a never-ending command is stopped: 124, timedOut, stderr line, earlier output kept, returns quickly",
+        "the whole process tree is gone after a timeout (a never-ending grandchild is killed too)",
+        "v1.1 runMutate timeout",
+        "a mutant that never ends is killed by timeout, the rest still run, file restored, exit 0",
+        "works in place (dirty tree) too: restores the file, counts a survivor, returns 1",
+        "without a timing-out mutant the summary line is the old one, with no parenthesis"
+      ]
+    },
+    {
+      "file": "tests/v11-qa.test.ts",
+      "names": [
+        "v1.1 parseQaReport cases",
+        "a missing cases key gives []; valid cases come back intact",
+        "any malformed cases value invalidates the whole report",
+        "v1.1 runQa prompt",
+        "carries the requirement verbatim, the acceptance, the changed-file list - and no line of the implementation diff",
+        "leaves the requirement section out when requirement.md is missing or blank",
+        "v1.1 runQa checkout and evidence",
+        "runs the role in a worktree of the integration branch, not in the main checkout",
+        "a report without cases is refused with the dedicated message, even when it says pass",
+        "a case with a missing field makes the report invalid: 1, nothing reopened, worktree removed",
+        "role exit != 0 returns 1 and still removes the worktree",
+        "replaces a stale worktree left by a crashed run",
+        "runs config.setupCommand in the worktree before the role; a failing setup returns 1 without calling the role",
+        "v1.1 runQa runs the cases itself",
+        "all cases exit 0 -> 0, prints the count, writes qa-run.json and leaves the run untouched",
+        "copies .bastion/qa-cases to the main checkout and replaces an old copy",
+        "a pass report whose case exits 1 does not pass: returns 1, reopens the node, feedback names the case, records the run",
+        "records the real exit code and keeps only the last 2000 chars of the output",
+        "runs cases sequentially in the order of the report, through a shell",
+        "does not duplicate a code finding the report already has for the node, but still adds cases of other nodes",
+        "a test_defect finding does not suppress the finding of a failing case on the same node",
+        "the role verdict cannot override a finding: pass + code finding + green cases is still a fail",
+        "a failed qa after reopening feeds `run --resume` with the case failure"
+      ]
+    },
+    {
+      "file": "tests/v11-reopen.test.ts",
+      "names": [
+        "v1.1 reopen: errors (return 1, nothing written)",
+        "works on a valid input first (guards the error tests below against a stub that always fails)",
+        "not inside a git repository",
+        "no run-state",
+        "missing or unreadable plan",
+        "node is not a plan node id",
+        "blank reason",
+        "--before is not a plan node id, or equals the node",
+        "--before would be a cycle: node already depends on it directly, transitively, or through extraDeps",
+        "the opposite direction is not a cycle",
+        "v1.1 reopen: effects",
+        "removes the node from completedNodes and blockedNodes, writes \"- reason\" feedback, prints the hint, keeps every other field",
+        "works for a node that is in neither list, and does not invent extraDeps without --before",
+        "appends to existing feedback (content kept, own line, with or without trailing newline) and across repeated reopens",
+        "--before adds node to extraDeps[before] without duplicates and keeps other entries",
+        "--before is removed from blockedNodes (and the node too)",
+        "v1.1 reopen: end to end",
+        "reopened node ra is rebuilt with the reason in its prompt, before rb is touched"
+      ]
+    },
+    {
+      "file": "tests/v11-run-fixes.test.ts",
+      "names": [
+        "v1.1 baselineDrift / driftMessage",
+        "BASELINE_FILES lists the six baseline files in the documented order",
+        "identical refs and changes to non-baseline files give []",
+        "reports a changed baseline file",
+        "counts a file present on only one side (added or deleted) and returns BASELINE_FILES order, not alphabetical",
+        "compares commits, not the working tree",
+        "an unknown ref gives [] instead of throwing",
+        "driftMessage returns exactly the two documented lines",
+        "v1.1 run: baseline drift stops for a human",
+        "resume after a human edited plan.json on the integration branch returns 2, calls no agent, changes nothing; reverting lets it resume",
+        "a fresh run started from a branch whose baseline files differ from the base is stopped before any agent call",
+        "v1.1 run: attempt logs are never overwritten",
+        "a node that failed once and is resumed keeps attempt-1.log intact and writes attempt-2.log",
+        "k is one more than the HIGHEST existing k for that node id (gaps, other nodes ignored)",
+        "retries inside one session continue the numbering (attempt 1 fails, attempt 2 passes)",
+        "v1.1 run: run-state extraDeps",
+        "a node with extraDeps starts only after its extra dependency is merged (concurrency 2), unknown ids are ignored, extraDeps survives",
+        "without extraDeps the same two nodes run in parallel (so the ordering above is really caused by extraDeps)",
+        "extraDeps is kept in run-state even when the run stops early",
+        "v1.1 run: commits and merges without a git identity",
+        "a whole runSwarm with two nodes completes with no git identity (node commit and merge commit)",
+        "with a configured identity the user\\'s identity is used for the node commit and the merge commit",
+        "mergeNodeBranch makes its --no-ff merge commit without a git identity",
+        "mergeNodeBranch keeps the configured identity when there is one"
+      ]
+    },
+    {
+      "file": "tests/v11-run-switches.test.ts",
+      "names": [
+        "v1.1 run questions switch",
+        "questions:false -> every agent sees BASTION_QUESTIONS === \"off\" (parent unset)",
+        "questions:false overrides a different inherited value",
+        "questions ${String(q)}: the variable is not set even if the parent had \"off\"",
+        "questions ${String(q)}: the variable is not set when the parent has nothing",
+        "the parent process env is restored / untouched by the run",
+        "v1.1 run budget switch",
+        "budget:false ignores maxCalls smaller than the node count: exit 0, no budgetHit, every call counted",
+        "budget:false ignores config.budget",
+        "budget:false ignores maxMinutes",
+        "budget:false on resume after a budget stop finishes the run and clears budgetHit",
+        "budget ${String(b)}: old behaviour, stops with EXIT_BUDGET and records budgetHit"
+      ]
+    },
+    {
+      "file": "tests/v11-stage.test.ts",
+      "names": [
+        "v1.1 run: staging after a passing gate",
+        "an agent that committed its own work leaves nothing to stage: the node still passes and is merged",
+        "uncommitted work is staged and committed by bastion as \"feat(<id>): apply verified changes\"",
+        "when only blocked files are left dirty they are skipped, not committed, and the node still passes"
+      ]
+    },
+    {
+      "file": "tests/v11-switches.test.ts",
+      "names": [
+        "v1.1 presets",
+        "has exactly the three tiers and names all switches",
+        "preset ${tier} matches the spec value by value",
+        "secondMap is off in every preset",
+        "default tier is village and every boolean switch of it is off (house rule 1)",
+        "v1.1 SWITCH_EVIDENCE",
+        "has a non-empty note for every switch name",
+        "secondMap is the measured one and mentions both trials",
+        "every other switch is unmeasured and says no with/without comparison yet",
+        "house rule 1: a switch on in the default preset must be measured",
+        "v1.1 parseTier",
+        "accepts names in any case with whitespace",
+        "accepts the Chinese names",
+        "rejects everything else",
+        "v1.1 resolveSwitches",
+        "no overrides returns the preset, a fresh object, nothing overridden",
+        "applies overrides, lists overridden keys in SWITCH_NAMES order, and does not mutate PRESETS",
+        "an override equal to the preset value is not listed as overridden",
+        "accepts the empty object and crew 0",
+        "a map-less village can turn map on together with split",
+        "rejects non-object overrides",
+        "rejects an unknown key and names it",
+        "rejects non-boolean boolean switches and names the key",
+        "rejects crew that is not an integer >= 0 and names crew",
+        "rejects map=false with crew other than 1 (checked on final values)",
+        "rejects map=false with split, secondMap or scaffold true and names the key",
+        "allows secondMap on when there is a map (an explicit override)",
+        "v1.1 chooseTier",
+        "nothing recorded, nothing requested -> default, defaulted",
+        "nothing recorded, requested -> requested, not defaulted",
+        "recorded wins when nothing or the same is requested",
+        "recorded village + nothing requested is not \"defaulted\"",
+        "a different tier is refused, naming both tiers, fixed-once-started and the clean command",
+        "v1.1 tierHint",
+        "has exactly 4 lines, all prefixed",
+        "one line per tier, in order, then the usage line",
+        "v1.1 describeSwitches",
+        "prints the village preset exactly",
+        "prints crew=config for 0 and on for true",
+        "prints a numeric crew above 1"
+      ]
+    },
+    {
+      "file": "tests/v11-tests-gaps.test.ts",
+      "names": [
+        "v1.1 tests: requirement passthrough",
+        "puts the requirement verbatim into every tester prompt and says the requirement wins",
+        "leaves the prompt unchanged without a requirement file, or with a blank one",
+        "v1.1 tests: when the critic is (not) called",
+        "does not call the critic without --lock",
+        "does not call the critic with gaps:false, but still locks",
+        "does not call the critic without a (non-blank) requirement, but still locks",
+        "v1.1 tests: critic failure fails closed",
+        "${name}: returns 1, no lock, no test commit",
+        "v1.1 tests: no gaps",
+        "locks, writes gaps.md, commits it, and calls the critic exactly once after the testers",
+        "when every reported gap is discarded the gap check does not count: no patch, no lock (round 5)",
+        "v1.1 tests: kept gaps are patched by the tester",
+        "one extra tester call for the affected node only, with rule, quote and the patch rules in the prompt",
+        "groups gaps by file (one call per node, sequential in map order) and lists both nodes in the note",
+        "compares gap.file with forward slashes",
+        "a gap without file, or naming an unknown file, goes to the first node",
+        "only kept gaps are sent to the tester; discarded ones are not",
+        "v1.1 tests: a bad patch fails the run",
+        "unchanged file -> 1",
+        "tester not touching the file at all -> 1",
+        "file changed but with fewer test cases -> 1",
+        "patch tester exits non-zero even though it wrote a longer file -> 1",
+        "v1.1 tests: lock amend path still gap-checks",
+        "an existing lock is amended after a gap patch"
+      ]
+    },
+    {
+      "file": "tests/v11-wall.test.ts",
+      "names": [
+        "v1.1 wall: import graph",
+        "the import scanner understands multi-line, type-only and re-export statements (self-check)",
+        "every kernel module and every forbidden module is a real file",
+        "lists the add-ons that must stay out of the kernel",
+        "src/wall.ts re-exports the five kernel commands as functions",
+        "${mod} reaches no forbidden module through its imports",
+        "v1.1 wall: standalone gaps (lock only)",
+        "works from the lock: test files in lock order, no package.json, no map, critic called once",
+        "leaves out locked paths that do not match lockedGlobs, whatever their name",
+        "follows a custom config.lockedGlobs instead of a hard-coded test pattern",
+        "never reads map.json: a map pointing at an unlocked test file does not change the prompt",
+        "a locked test file that was deleted from disk is skipped; all gone -> !ok",
+        "no lock.json -> !ok, critic never called, the error says to run bastion lock first",
+        "explicit testFiles still win over the lock (and need no lock)",
+        "probe mode takes its cases from the locked test files too",
+        "v1.1 wall: standalone qa (no run-state, no acceptance.md)",
+        "passes against the ref branch with one passing case; the prompt has requirement and changed files, no acceptance section",
+        "really checks out the ref: a case that needs the implementation fails against the stub branch",
+        "without ref the target is HEAD",
+        "a failing case returns 1, appends feedback/<node>.md, prints the standalone hint and creates no run-state",
+        "a code finding from the role (pass verdict) also lands in feedback and ends with the standalone hint",
+        "a test_defect finding in standalone mode goes to qa-disputes.md, still without a run-state",
+        "a base branch that does not exist gives \"(unavailable)\" in Changed files and is not an error",
+        "a ref that does not exist is an error (nothing to check out), role not called, no leftover worktree",
+        "a report without a case is still refused in standalone mode",
+        "an acceptance.md that exists is still shown in standalone mode",
+        "v1.1 wall: with a run-state the old behaviour holds",
+        "no ref: checks the integration branch (not HEAD), shows acceptance.md and leaves the run-state alone on pass",
+        "no ref, failing case: reopens only that node and points at run --resume",
+        "an explicit ref makes it standalone even when a run-state exists: nothing is reopened, run-state untouched"
+      ]
     }
   ],
   "amendments": [
@@ -618,6 +1272,73 @@
       "previousBaseCommit": "f93f3d71c821c2da51093c178e0cbaaed941fb11",
       "newBaseCommit": "6ccd2cfe89e37a10c2211144b23cba1263e61dee",
       "redVerifiedAgainst": "f93f3d71c821c2da51093c178e0cbaaed941fb11"
+    },
+    {
+      "at": "2026-11-18T13:02:07.946Z",
+      "reason": "v1.1 round 1: new red tests; v1-qa/v1-flow updated for the live-QA contract (reports need cases, no diff in prompt)",
+      "previousBaseCommit": "6ccd2cfe89e37a10c2211144b23cba1263e61dee",
+      "newBaseCommit": "518e8d139c9d8759d4004b2df64c1f633886c0ff"
+    },
+    {
+      "at": "2026-11-18T13:10:47.714Z",
+      "reason": "disputes g2-tests / g3-qa upheld: two test defects fixed",
+      "previousBaseCommit": "518e8d139c9d8759d4004b2df64c1f633886c0ff",
+      "newBaseCommit": "008fe2e63d862ec9bf2ba633ee61e307e34d9edc"
+    },
+    {
+      "at": "2026-11-18T13:18:41.486Z",
+      "reason": "dispute g3-qa upheld: resume fixtures must be committed on the integration branch",
+      "previousBaseCommit": "008fe2e63d862ec9bf2ba633ee61e307e34d9edc",
+      "newBaseCommit": "19a08b0fb3691a48743aebd79d02b4a259e74203"
+    },
+    {
+      "at": "2026-11-18T14:07:10.289Z",
+      "reason": "v1.1 round 3: red tests for the standalone kernel and flow fixes; gaps-cmd/v1-qa updated for the kernel rules",
+      "previousBaseCommit": "19a08b0fb3691a48743aebd79d02b4a259e74203",
+      "newBaseCommit": "21fe24a3dc6461cca212801c5613757d23a90091"
+    },
+    {
+      "at": "2026-11-18T18:46:10.681Z",
+      "reason": "v1.1 round 4: switches + presets, thin contract, mutation timeout",
+      "previousBaseCommit": "21fe24a3dc6461cca212801c5613757d23a90091",
+      "newBaseCommit": "f4ada4f5cdd02acd86f968c120e3f43132ca8cc4"
+    },
+    {
+      "at": "2026-11-18T23:35:58.899Z",
+      "reason": "dispute s4-flow upheld: scaffold-off case was unsatisfiable",
+      "previousBaseCommit": "f4ada4f5cdd02acd86f968c120e3f43132ca8cc4",
+      "newBaseCommit": "e7447f6c027cba65fefa0ac95d19cdbf7e4b5fc2"
+    },
+    {
+      "at": "2026-11-18T23:45:40.006Z",
+      "reason": "dispute s4-flow upheld: hygiene tests predate the village default",
+      "previousBaseCommit": "e7447f6c027cba65fefa0ac95d19cdbf7e4b5fc2",
+      "newBaseCommit": "ab3662579826f801a2869949f8ccd4c5559d3584"
+    },
+    {
+      "at": "2026-11-19T00:45:31.510Z",
+      "reason": "v1.1 round 5: wall hardening",
+      "previousBaseCommit": "ab3662579826f801a2869949f8ccd4c5559d3584",
+      "newBaseCommit": "a8f31db993a30f3f2f46be870892956312da4f01"
+    },
+    {
+      "at": "2026-11-19T01:02:21.737Z",
+      "reason": "disputes h1-tests and h3-gaps upheld",
+      "previousBaseCommit": "a8f31db993a30f3f2f46be870892956312da4f01",
+      "newBaseCommit": "fdac8c71417a0c8bd4721a79cecda3fdc26d23ca"
+    },
+    {
+      "at": "2026-11-19T01:51:22.041Z",
+      "reason": "older tests-gaps case contradicted round 5 all-discarded rule",
+      "previousBaseCommit": "fdac8c71417a0c8bd4721a79cecda3fdc26d23ca",
+      "newBaseCommit": "2b1e02ef5ee4065facc5de3304602dd60e2b0f85"
+    },
+    {
+      "at": "2026-11-19T03:12:00.539Z",
+      "reason": "characterisation test for stageSafeWorktreeFiles; shown to fail against the surviving mutant (run.ts:102 return true -> false)",
+      "previousBaseCommit": "2b1e02ef5ee4065facc5de3304602dd60e2b0f85",
+      "newBaseCommit": "a70177f02d1fa4340c76a834e2a1831842a4314c",
+      "redVerifiedAgainst": "2b1e02ef5ee4065facc5de3304602dd60e2b0f85"
     }
   ]
 }

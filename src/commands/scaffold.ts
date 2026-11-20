@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readConfigFromDisk } from '../config.js';
-import { execGit, getRepoRoot } from '../git.js';
+import { execGit, getRepoRoot, gitIdentityArgs } from '../git.js';
 import { INTERFACES_REL_PATH, MAP_REL_PATH, type BastionMap } from '../map.js';
 import { resolveAgentCommand, runRole } from '../roles.js';
 import type { ScaffoldOptions } from './stages.js';
@@ -28,6 +28,7 @@ function loadMap(repoRoot: string): BastionMap | null {
  * create those files with the exact interfaces and placeholder bodies (no real logic) so tests can compile and fail on assertions.
  * Then checks every node file exists (missing -> 1) and commits them ("chore(bastion): scaffold"). Requires map.json.
  */
+/** v1.1 addition to runScaffold: its commit passes gitIdentityArgs(repoRoot) (src/git.ts) before the `commit` subcommand, so it works without a configured git identity. */
 export async function runScaffold(opts: ScaffoldOptions): Promise<number> {
   const repoRoot = getRepoRoot(opts.cwd);
   if (!repoRoot) {
@@ -90,7 +91,7 @@ export async function runScaffold(opts: ScaffoldOptions): Promise<number> {
     console.error(`[bastion] scaffold: git add failed: ${add.stderr}`);
     return 1;
   }
-  const commit = execGit(['commit', '-m', 'chore(bastion): scaffold', '--', ...files], repoRoot);
+  const commit = execGit([...gitIdentityArgs(repoRoot), 'commit', '-m', 'chore(bastion): scaffold', '--', ...files], repoRoot);
   if (!commit.ok) {
     console.error(`[bastion] scaffold: git commit failed: ${commit.stderr || commit.stdout}`);
     return 1;

@@ -1,5 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import {
   CONFIG_REL_PATH,
   LOCK_REL_PATH,
@@ -7,13 +6,15 @@ import {
   readLockFromRef,
 } from '../config.js';
 import { execGit, getChangedFilesBetween, getRepoRoot } from '../git.js';
-import { matchesAnyGlob } from '../runner.js';
+import { hashMatches, matchesAnyGlob } from '../runner.js';
 
 /**
  * True when a merge that touched locked files is an authorised lock amendment (v1.0, F8):
  * the lock.json at `sha` has more `amendments` than the lock.json at `sha^1`, and every touched path
  * other than .bastion/lock.json is listed in the new lock's lockedFiles with a sha256 equal to that
  * file's content at `sha`. Touching .bastion/config.json is never authorised. Missing/unreadable locks -> false.
+ * v1.1: "equal" means hashMatches(content at sha, recorded sha256) from src/runner.ts, so a lock written on a CRLF
+ * checkout still matches the LF blob git stores (this used to be reported as a bypass on Windows).
  */
 export function isAuthorizedAmendment(repoRoot: string, sha: string, touched: string[]): boolean {
   try {
@@ -32,7 +33,7 @@ export function isAuthorizedAmendment(repoRoot: string, sha: string, touched: st
         stdio: ['ignore', 'pipe', 'ignore'],
       });
       if (res.status !== 0 || !Buffer.isBuffer(res.stdout)) return false;
-      if (createHash('sha256').update(res.stdout).digest('hex') !== expected) return false;
+      if (!hashMatches(res.stdout, expected)) return false;
     }
     return true;
   } catch {
@@ -49,6 +50,17 @@ export interface AuditOptions {
  * Post-hoc audit for local-only repos without CI branch protection:
  * inspects recent merge commits (or linear commits) to verify no commit modified
  * locked test/config files without an authorized lock amendment.
+ */
+/*
+ * v1.1 hardening (round 5): a merge that cannot be checked is no longer skipped without a trace.
+ * - A merge whose first parent has no readable .bastion config or lock prints
+ *   `[SKIP] <first 8 chars of the sha> (<subject>) - its parent has no readable bastion config/lock` (same shape as
+ *   the [PASS] lines).
+ * - After the loop, when at least one merge was skipped and there was no failure, one more line follows the usual
+ *   final line: `[bastion] Audit: <checked> merge(s) checked, <skipped> skipped (not covered by this audit).`
+ * - When EVERY merge was skipped, the usual "no locked-scope bypasses detected" line is NOT printed (nothing was
+ *   checked); instead `[bastion] Audit: no merge could be checked (<n> skipped).` is printed. Exit code stays 0.
+ * With no skipped merge the output is exactly as before.
  */
 export function runAudit(opts: AuditOptions): number {
   const repoRoot = getRepoRoot(opts.cwd);
@@ -69,6 +81,7 @@ export function runAudit(opts: AuditOptions): number {
   }
 
   let failures = 0;
+  let skipped = 0;
   for (const line of commits) {
     const spaceIdx = line.indexOf(' ');
     const sha = spaceIdx === -1 ? line : line.slice(0, spaceIdx);
@@ -81,7 +94,9 @@ export function runAudit(opts: AuditOptions): number {
       baseConfig = readConfigFromRef(parentRef, repoRoot);
       baseLock = readLockFromRef(parentRef, repoRoot);
     } catch {
-      // Bastion was not initialized on this merge's parent; skip
+      // Bastion was not initialized on this merge's parent; skip, but leave a trace
+      skipped++;
+      console.log(`[SKIP] ${sha.slice(0, 8)} (${subject}) - its parent has no readable bastion config/lock`);
       continue;
     }
 
@@ -113,6 +128,16 @@ export function runAudit(opts: AuditOptions): number {
     return 1;
   }
 
+  if (skipped === commits.length) {
+    console.log(`\n[bastion] Audit: no merge could be checked (${skipped} skipped).`);
+    return 0;
+  }
+
   console.log('\n[bastion] Audit complete: no locked-scope bypasses detected.');
+  if (skipped > 0) {
+    console.log(
+      `[bastion] Audit: ${commits.length - skipped} merge(s) checked, ${skipped} skipped (not covered by this audit).`
+    );
+  }
   return 0;
 }

@@ -1,0 +1,181 @@
+{
+  "r1": {
+    "nodes": [
+      {
+        "id": "g1-gaps",
+        "title": "Gap check (critic) core and command",
+        "files": "src/gaps.ts and src/commands/gaps.ts",
+        "tests": [
+          "v11-gaps-core.test.ts",
+          "v11-gaps-cmd.test.ts"
+        ],
+        "task": "Implement every stub in src/gaps.ts and findGaps / runGaps in src/commands/gaps.ts."
+      },
+      {
+        "id": "g2-tests",
+        "title": "Requirement reaches the tester; gap check before lock",
+        "files": "src/commands/tests.ts",
+        "dependsOn": [
+          "g1-gaps"
+        ],
+        "tests": [
+          "v11-tests-gaps.test.ts"
+        ],
+        "task": "Implement the two v1.1 paragraphs of runTests in src/commands/tests.ts (findGaps from src/commands/gaps.ts is already implemented by your dependency)."
+      },
+      {
+        "id": "g3-qa",
+        "title": "QA runs black-box cases in a checkout",
+        "files": "src/commands/qa.ts",
+        "tests": [
+          "v11-qa.test.ts",
+          "v1-qa.test.ts"
+        ],
+        "task": "Implement the v1.1 parseQaReport (cases) and runQa in src/commands/qa.ts."
+      }
+    ]
+  },
+  "r3": {
+    "nodes": [
+      {
+        "id": "k1-kernel",
+        "title": "Kernel works without map, plan or run",
+        "files": "src/commands/gaps.ts and src/commands/qa.ts",
+        "tests": [
+          "v11-wall.test.ts",
+          "v11-gaps-cmd.test.ts",
+          "v1-qa.test.ts"
+        ],
+        "task": "Implement the 'v1.1 kernel rule' paragraphs of findGaps (src/commands/gaps.ts; it must stop importing src/map.ts) and of runQa (src/commands/qa.ts)."
+      },
+      {
+        "id": "f1-hygiene",
+        "title": "Import scan, line-ending-proof lock hash, commit identity",
+        "files": "src/imports.ts, src/runner.ts, src/commands/lock.ts, src/commands/audit.ts, src/commands/scaffold.ts, src/commands/tests.ts and commitMapFiles in src/commands/flow.ts",
+        "tests": [
+          "v11-imports.test.ts",
+          "v11-hygiene.test.ts"
+        ],
+        "task": "Implement every stub in src/imports.ts, contentHash / hashMatches in src/runner.ts, and each paragraph marked v1.1 in runLock, isAuthorizedAmendment, runScaffold, commitMapFiles and runTests (dependency scan, commit identity)."
+      },
+      {
+        "id": "f2-run",
+        "title": "Run: stop on baseline drift, keep attempt logs, reopen blocks",
+        "files": "src/baseline.ts, src/commands/reopen.ts, src/commands/run.ts and mergeNodeBranch in src/orchestrator/worktree.ts",
+        "tests": [
+          "v11-run-fixes.test.ts",
+          "v11-reopen.test.ts"
+        ],
+        "task": "Implement src/baseline.ts, runReopen in src/commands/reopen.ts and the four 'v1.1 additions to runSwarm' (a)-(d) documented above runSwarm, plus the identity note on mergeNodeBranch."
+      }
+    ]
+  },
+  "r4": {
+    "nodes": [
+      {
+        "id": "s1-switches",
+        "title": "Presets and switches",
+        "files": "src/tier.ts",
+        "tests": [
+          "v11-switches.test.ts"
+        ],
+        "task": "Implement every TODO in src/tier.ts (presets, evidence table, parseTier, resolveSwitches, chooseTier, tierHint, describeSwitches)."
+      },
+      {
+        "id": "s2-contract",
+        "title": "Thin interface contract in one call",
+        "files": "src/commands/contract.ts",
+        "tests": [
+          "v11-contract.test.ts"
+        ],
+        "task": "Implement parseContractOutput and runContract in src/commands/contract.ts."
+      },
+      {
+        "id": "s3-addons",
+        "title": "One-planner map; questions and budget switches in run",
+        "files": "src/commands/map.ts and src/commands/run.ts",
+        "tests": [
+          "v11-map-single.test.ts",
+          "v11-run-switches.test.ts"
+        ],
+        "task": "Implement the v1.1 addition documented above runMap (opts.planners === 1) and items (e) and (f) of the v1.1 additions documented above runSwarm."
+      },
+      {
+        "id": "s4-flow",
+        "title": "Flow follows presets and switches",
+        "files": "src/commands/flow.ts",
+        "dependsOn": [
+          "s1-switches",
+          "s2-contract",
+          "s3-addons"
+        ],
+        "tests": [
+          "v11-flow-switches.test.ts",
+          "v1-flow.test.ts"
+        ],
+        "task": "Implement the 'v1.1 presets and switches' paragraph of runFlow in src/commands/flow.ts (its dependencies are implemented)."
+      },
+      {
+        "id": "s5-mutate",
+        "title": "Mutation runs cannot hang forever",
+        "files": "src/runner.ts and src/commands/mutate.ts",
+        "tests": [
+          "v11-mutate-timeout.test.ts"
+        ],
+        "task": "Implement the v1.1 timeout of runTestCommand in src/runner.ts (remove the `void timeoutMs` placeholder) and the v1.1 addition documented above runMutate in src/commands/mutate.ts."
+      }
+    ]
+  },
+  "r5": {
+    "nodes": [
+      {
+        "id": "h1-tests",
+        "title": "No silent skip or fake patch before the lock",
+        "files": "src/commands/tests.ts",
+        "tests": [
+          "v11-hard-tests.test.ts",
+          "v11-tests-gaps.test.ts",
+          "v11-hygiene.test.ts"
+        ],
+        "task": "Implement (H1), (H2) and (H3) of the 'v1.1 hardening (round 5)' comment above runTests in src/commands/tests.ts."
+      },
+      {
+        "id": "h2-qa",
+        "title": "QA cannot edit the product; a fail verdict counts",
+        "files": "src/commands/qa.ts",
+        "tests": [
+          "v11-hard-qa.test.ts"
+        ],
+        "task": "Implement (Q1) and (Q2) of the 'v1.1 hardening (round 5)' comment above runQa in src/commands/qa.ts."
+      },
+      {
+        "id": "h3-gaps",
+        "title": "Sloppy quotes are matched; all-discarded is not a pass",
+        "files": "src/gaps.ts and src/commands/gaps.ts",
+        "tests": [
+          "v11-hard-gaps.test.ts",
+          "v11-gaps-cmd.test.ts"
+        ],
+        "task": "Implement the 'v1.1 hardening (round 5)' comments above checkQuotes in src/gaps.ts and above findGaps in src/commands/gaps.ts."
+      },
+      {
+        "id": "h4-run",
+        "title": "Single-mode feedback reaches the agent; timeouts kill the process tree",
+        "files": "src/runner.ts and src/commands/run.ts",
+        "tests": [
+          "v11-hard-run.test.ts"
+        ],
+        "task": "Implement killProcessTree and the round 5 hardening of runTestCommandAsync in src/runner.ts, and items (g) and (h) of the 'v1.1 hardening (round 5)' comment above runSwarm in src/commands/run.ts."
+      },
+      {
+        "id": "h5-audit",
+        "title": "Audit says what it could not check",
+        "files": "src/commands/audit.ts",
+        "tests": [
+          "v11-hard-audit.test.ts"
+        ],
+        "task": "Implement the 'v1.1 hardening (round 5)' comment above runAudit in src/commands/audit.ts."
+      }
+    ]
+  }
+}

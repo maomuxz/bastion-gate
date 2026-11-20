@@ -1,0 +1,157 @@
+{
+  "r1": {
+    "gaps-core": {
+      "write": [
+        "v11-gaps-core.test.ts"
+      ],
+      "files": "src/gaps.ts (all exported functions)",
+      "extra": "removeTestCase deserves the hardest cases: a case body containing ')' and '}' inside strings, template literals with ${...}, // and /* */ comments; nested describe blocks; test.skip / it.only; a call with a trailing options object; a name that occurs twice (first one goes); the 'every other character preserved' rule (input === the result with `removed` put back at the cut). For checkQuotes: quotes that differ only in whitespace/case are kept."
+    },
+    "gaps-cmd": {
+      "write": [
+        "v11-gaps-cmd.test.ts"
+      ],
+      "files": "findGaps and runGaps in src/commands/gaps.ts (helpers in src/gaps.ts, runRole in src/roles.ts, GapsOptions in src/commands/stages.ts)",
+      "extra": "Use createRoleRepo with a committed .bastion/map.json (sampleMap()) and the SAMPLE_FILES tests, and write .bastion/requirement.md yourself (it is gitignored, just write the file). Fixtures: critic.byLabel.gaps / 'gaps-probe' / 'gaps-probe-judge'. Check with readRoleCalls: the critic prompt holds the requirement and every test file's content but not the interfaces text of the map; in probe mode the hidden case's source is absent from the 'gaps-probe' prompt while the test file on disk is byte-identical afterwards; the judge is not called when no gap is kept; fail-closed cases (missing requirement, critic exit 1, critic writes no report, invalid report, bad --drop); quote filtering (a gap whose quote is not in the requirement lands in discarded and does not make runGaps fail); runGaps exit codes, the printed lines and .bastion/gaps.md."
+    },
+    "tests-gaps": {
+      "write": [
+        "v11-tests-gaps.test.ts"
+      ],
+      "update": [
+        "v1-tests-cmd.test.ts"
+      ],
+      "updateNote": "Only touch it if an assertion really contradicts the v1.1 doc comment of runTests; otherwise leave it byte-identical.",
+      "files": "the v1.1 paragraphs of runTests in src/commands/tests.ts (TestsOptions in src/commands/stages.ts; findGaps in src/commands/gaps.ts is a stub that a parallel task implements - drive it through critic fixtures, never mock it)",
+      "extra": "Build on the setup of tests/v1-tests-cmd.test.ts (createRoleRepo + committed map.json + stubs + tester fixtures) and write .bastion/requirement.md yourself. Cover: requirement section in every tester prompt (and absent without the file); no critic call without lock / with gaps:false / without requirement; critic failure -> 1 and no lock.json and no test commit; no gaps -> locked, gaps.md written; kept gaps -> exactly one extra tester call per affected node with label tests-<id>-gaps whose prompt has the rule and quote, grouping by file with the first-node fallback, the patch must change the file (make the 'gaps' labelled tester fixture write a longer test file; the fake tester writes whole files, so give byLabel entries for both `tests-n1` and `tests-n1-gaps`), unchanged file -> 1, fewer cases -> 1, the note in gaps.md, the critic called exactly once. The patched test file must still be red against the stubs so the lock succeeds. These tests will only pass once both findGaps and runTests are implemented; that is expected."
+    },
+    "qa-live": {
+      "write": [
+        "v11-qa.test.ts"
+      ],
+      "update": [
+        "v1-qa.test.ts",
+        "v1-flow.test.ts"
+      ],
+      "updateNote": "v1-qa.test.ts: its qa fixtures have no cases, which the new contract rejects - give them cases (case scripts written through the fixture's `files`, e.g. '.bastion/qa-cases/c1.mjs' with process.exit(0)) and drop assertions about the full diff being in the prompt. v1-flow.test.ts: add a critic fixture {output:{gaps:[]}} and give the qa fixture one passing case; change nothing else.",
+      "files": "parseQaReport and the v1.1 runQa in src/commands/qa.ts (QaCase, QaCaseRun, QA_RUN_REL_PATH, QA_CASES_REL_DIR in src/commands/stages.ts)",
+      "extra": "Set up a real completed run like tests/v1-qa.test.ts does. The fake qa role runs with cwd = the QA worktree; it writes fixture `files` relative to that cwd and the report to BASTION_OUTPUT. Cover: parseQaReport cases rules; prompt has the requirement section verbatim (absent without the file), the acceptance, a '## Changed files' section, and does NOT contain a line of the implementation diff; role cwd is the worktree (let a case script write a marker or check via a case that reads a file only present on the integration branch); a pass report without cases -> 1; a report claiming pass whose case exits 1 -> 1, the node is reopened, feedback/<node>.md mentions the case name; all cases exit 0 -> 0; .bastion/qa-run.json content (exitCode, outputTail); .bastion/qa-cases copied to the main checkout; the worktree .bastion/worktrees/qa is gone afterwards in pass and fail paths; an existing code finding for the node is not duplicated."
+    }
+  },
+  "r2": {
+    "kernel": {
+      "write": [
+        "v11-wall.test.ts"
+      ],
+      "update": [
+        "v11-gaps-cmd.test.ts",
+        "v11-qa.test.ts",
+        "v1-qa.test.ts"
+      ],
+      "updateNote": "v11-gaps-cmd.test.ts: the default test files now come from .bastion/lock.json, not from the map - adjust the setups (lock the repo with runLock, as tests/v1-qa.test.ts does) and add the new rules (non-test locked paths such as package.json are left out; no lock -> !ok; map.json is not needed at all). v11-qa.test.ts / v1-qa.test.ts: a missing run-state and a missing acceptance.md are no longer errors - replace those assertions with the standalone-mode rules.",
+      "files": "src/wall.ts (KERNEL_MODULES, KERNEL_FORBIDDEN_IMPORTS and the header comment), the 'v1.1 kernel rule' paragraphs of findGaps in src/commands/gaps.ts and of runQa in src/commands/qa.ts",
+      "extra": "v11-wall.test.ts has two parts. (1) Import graph: starting from every file in KERNEL_MODULES, follow relative import / export-from statements in the .ts sources transitively (read the files under src/ from the repo root; resolve './x.js' to x.ts; `import type` lines count too) and assert that no file of KERNEL_FORBIDDEN_IMPORTS is reached; also assert every KERNEL_MODULES file exists and that src/wall.ts really re-exports runLock, findGaps, runGaps, runGate, runGateAsync, runQa, runAudit as functions. Locate the repo root robustly (walk up from the compiled test file until package.json is found). (2) Standalone wall: a repo made with createRoleRepo that has NO .bastion/map.json, NO plan.json and no run-state: stubs + a red test + requirement.md, runLock; then findGaps works from the lock (critic fixture) and the prompt has the test file but not package.json; commit an implementation on a branch and runQa({cwd, ref: '<branch>'}) passes with a qa fixture that has one passing case, without acceptance.md; a failing case in standalone mode returns 1, writes feedback/<node>.md, prints the 'fix the findings' line and creates no run-state.json; a non-existing base branch gives '(unavailable)' in the prompt and is not an error; with a run-state present and no ref the old behaviour (integration branch, reopen) still holds."
+    }
+  },
+  "r3": {
+    "hygiene": {
+      "write": [
+        "v11-imports.test.ts",
+        "v11-hygiene.test.ts"
+      ],
+      "files": "src/imports.ts (all functions); contentHash and hashMatches in src/runner.ts; the paragraphs marked v1.1 in runLock (src/commands/lock.ts), isAuthorizedAmendment (src/commands/audit.ts), runScaffold (src/commands/scaffold.ts), commitMapFiles (src/commands/flow.ts, test it through runFlow) and the 'dependency scan' and 'every commit' paragraphs of runTests (src/commands/tests.ts). gitIdentityArgs in src/git.ts is already implemented",
+      "extra": "v11-imports.test.ts: pure tests of src/imports.ts (comments, dynamic import, require, export-from, resolution candidates and escaping the root, transitive dependencies, one MissingDep per pair, cycle reporting, plan copy semantics). v11-hygiene.test.ts: (1) contentHash / hashMatches incl. binary buffers and the three accepted forms; runLock records contentHash (lock a repo whose test file has CRLF line endings on disk and compare with the hash of the LF text); an audit case modelled on tests/v1-audit-amend.test.ts where the amended lock was written from a CRLF working copy (set `git config core.autocrlf true` in the temp repo, or write the file with CRLF and add a .gitattributes `* text=auto`) is reported as an authorised amendment and returns 0. (2) runTests dependency scan: a createRoleRepo with a map where n2's test imports n1's file but n2 does not depend on n1 (take sampleMap() and delete n2.dependsOn; write plan.json with mapToPlan): after runTests the plan has n2 -> n1, the line is printed, plan.json is in the test commit, map.json is byte-identical; no plan.json -> no error; a cycle is only warned about. (3) Identity: in a temp repo with user.name/user.email unset locally and GIT_CONFIG_GLOBAL / GIT_CONFIG_SYSTEM pointed at an empty temp file for the duration of the call (restore the env afterwards), runScaffold and runTests({lock:true}) still commit, author email bastion@local; with an identity configured the commits carry the configured email, also for the 'approved map' commit made by runFlow. Use the fake role fixtures of tests/v1-helpers.ts as tests/v1-scaffold.test.ts and tests/v1-tests-cmd.test.ts do."
+    },
+    "run-fixes": {
+      "write": [
+        "v11-run-fixes.test.ts",
+        "v11-reopen.test.ts"
+      ],
+      "files": "src/baseline.ts; runReopen in src/commands/reopen.ts; the 'v1.1 additions to runSwarm' comment in src/commands/run.ts; mergeNodeBranch in src/orchestrator/worktree.ts; RunState.extraDeps in src/state.ts",
+      "extra": "Use createSwarmRepo from tests/v04-helpers.ts (read tests/v04-budget.test.ts and tests/v041-progress.test.ts for how runs are driven and how agent calls are counted). v11-run-fixes.test.ts: baselineDrift / driftMessage directly; (a) start a run that fails or is stopped midway (e.g. two nodes, the second agent fails with maxRetries 0), commit a change to .bastion/plan.json on the integration branch, then runSwarm({resume:true}) returns 2, prints both drift lines, calls no agent (count attempt logs / agent calls before and after) and leaves agentCalls and completedNodes unchanged; after reverting the commit resume works again. (b) a node that fails once, then resume: the logs directory has <id>-attempt-1.log AND <id>-attempt-2.log with the first one's content intact. (c) extraDeps: with run-state extraDeps {b: ['a']} for two otherwise independent nodes and concurrency 2, node b's agent starts only after a is merged (let a's agent script write a file that b's agent script requires to exist, or compare the order of the 'Attempt' lines); unknown ids are ignored; extraDeps survives in run-state after the run. (d) with no git identity (unset locally + GIT_CONFIG_GLOBAL / GIT_CONFIG_SYSTEM pointed at an empty temp file during the call, restored after) a whole runSwarm with two nodes still completes (node commit and merge commit succeed). v11-reopen.test.ts: every error case and every effect listed in the runReopen doc comment, then an end-to-end: completed two-node run, runReopen(a, reason, before b), resume -> a's prompt (.bastion/logs/a-prompt.txt) contains the reason and a is rebuilt before b is touched."
+    }
+  },
+  "r4": {
+    "switches": {
+      "write": [
+        "v11-switches.test.ts"
+      ],
+      "files": "src/tier.ts (every exported constant and function; the header comment states the two house rules)",
+      "extra": "Pure functions; no repos needed. Check the three presets value by value, that secondMap is off in every preset, that DEFAULT_TIER is 'village' and every boolean switch of the default preset is off (house rule 1), SWITCH_EVIDENCE has an entry with a non-empty note for every name in SWITCH_NAMES and the secondMap entry is the measured one, every error of resolveSwitches (each naming the key), overridden order, that PRESETS is not mutated, chooseTier, tierHint, describeSwitches."
+    },
+    "contract": {
+      "write": [
+        "v11-contract.test.ts"
+      ],
+      "files": "parseContractOutput and runContract in src/commands/contract.ts (ContractOptions in src/commands/stages.ts; isMapApproved in src/commands/review.ts; validateMap/readMap in src/map.ts; gitIdentityArgs in src/git.ts)",
+      "extra": "Use createRoleRepo; the planner fixture needs byLabel.contract with `files` (the stubs, e.g. SAMPLE_FILES.stubs) and `output` (the ContractOutput). Cover every numbered step of the runContract doc comment: requirement.md verbatim; the prompt (requirement verbatim, a top-level file name, the words that forbid internal design / tests / commit, the JSON shape); each failure in step 3 separately (role exit 1, invalid output, a listed file missing or empty, testFile already existing, a stray edited or untracked file outside the list - and that files under .bastion/ are tolerated); the exact one-node map (id, title, summary, testCommand = config.testCommand) and that readMap accepts it; interfaces.md / acceptance.md / plan.json / the exact map-diff.md text; isMapApproved true and approval.json has by: 'village-tier'; the stub commit (message, only the stub files in it, no uncommitted stub afterwards); the printed line. Identity: tests/v11-hygiene.test.ts shows how to run with no git identity (read it) - the commit must still succeed with author email bastion@local."
+    },
+    "addons": {
+      "write": [
+        "v11-map-single.test.ts",
+        "v11-run-switches.test.ts"
+      ],
+      "files": "the 'v1.1 addition to runMap' comment in src/commands/map.ts (MapOptions.planners in src/commands/stages.ts) and items (e) and (f) of the 'v1.1 additions to runSwarm' comment in src/commands/run.ts (RunOptions.questions / RunOptions.budget)",
+      "extra": "v11-map-single.test.ts: model it on tests/v1-map-cmd.test.ts. planners:1 calls only the planner (readRoleCalls), no map-b.json, exact map-diff.md text, the usual outputs and exit code, an invalid planner map still -> 1, splitting with parent + planners:1 calls one role; planners 2 and undefined still call both roles and produce the old diff. v11-run-switches.test.ts: model it on tests/v04-budget.test.ts and tests/v04-inbox.test.ts (createSwarmRepo from tests/v04-helpers.ts, whose agent scripts can print their environment into a file). (e) with questions:false the agent sees BASTION_QUESTIONS === 'off', also when the parent process has BASTION_QUESTIONS set to something else (set and restore process.env in the test); with questions undefined or true the agent does not see the variable even if the parent process had it set to 'off'. (f) a run that would stop with EXIT_BUDGET (maxCalls smaller than the node count, or config.budget) completes with 0 when budget:false, run-state has no budgetHit and agentCalls still counts every call; with budget undefined the old behaviour holds."
+    },
+    "flow": {
+      "write": [
+        "v11-flow-switches.test.ts"
+      ],
+      "update": [
+        "v1-flow.test.ts"
+      ],
+      "updateNote": "v1-flow.test.ts describes the v1.0 flow, which is now the capital preset with secondMap on: make every runFlow call there pass tier 'capital' and give the repo config `switches: { secondMap: true }` (createRoleRepo configPatch), and if it sets a budget keep it. Change nothing else unless an assertion contradicts the new doc comment.",
+      "files": "the 'v1.1 presets and switches' paragraph of runFlow in src/commands/flow.ts (src/tier.ts, runContract in src/commands/contract.ts, runMap planners and runSwarm questions/budget are stubs that parallel tasks implement - drive everything through role fixtures and config, never mock)",
+      "extra": "Model it on tests/v1-flow.test.ts (its happyFixtures has critic and qa-case fixtures). Read role calls with readRoleCalls. Cover: (1) no --tier: tier village is stored, the tier line and the 4 hint lines are printed, and ONE runFlow call returns 0 with no approval stop - planner called once with label contract, blind never, no worker-role (scaffold) call, tester once, exactly one construction call with label all-nodes, qa once. Village fixtures: planner.byLabel.contract = { files: SAMPLE_FILES.stubs, output: { files: ['src/add.mjs','src/mul.mjs'], testFile: 'tests/calc.test.mjs', interface: '...', acceptance: ['...'] } }; tester writes tests/calc.test.mjs (red against the stubs, green against SAMPLE_FILES.impl); run.byLabel['all-nodes'] writes SAMPLE_FILES.impl. (2) city: first call returns 2 after exactly one planner call (label map-a) and no blind call; after runReview({approve:true}) the next call returns 0, scaffold ran, n1 was built before n2. (3) capital: one planner by default (secondMap off), approval stop, and with config switches { secondMap: true } both planner and blind are called. (4) overrides: tier city with config switches { approval: false } finishes in one call (flow approves itself; isMapApproved true); { scaffold: false } with a map makes the tester run against... skip that one; an invalid override (unknown key, or map false with crew 2) returns 1 with the error and no role call. (5) fixed for the run: flow-state.json holds tier and switches; changing config.switches after the first call does not change behaviour; a different --tier later returns 1 with the chooseTier error and no role call, also when the flow is done; a v1.0 state file { stages: ['map'] } is treated as capital with secondMap on; { stages: [] } as nothing recorded. (6) split: with tier capital and a planner map whose n2 has split: true, runMap is called again for n2 (a planner call with label split-n2-map-a) before the approval stop; with tier city the flag is ignored. (7) questions/budget reach construction: with tier village the construction agent sees BASTION_QUESTIONS=off (let the all-nodes fixture be unable to show env - instead check through .bastion/logs: skip if not observable) - only assert what the fixtures can observe; do not write timing tests."
+    },
+    "mutate": {
+      "write": [
+        "v11-mutate-timeout.test.ts"
+      ],
+      "files": "the v1.1 timeout paragraph of runTestCommand in src/runner.ts and the 'v1.1 addition' comment above runMutate in src/commands/mutate.ts (MutateOptions.timeoutMs)",
+      "extra": "Model the mutate part on the mutate tests in tests/bastion.test.ts (read how they build a small repo with a guard file and a testCommand). runTestCommand: a command that finishes in time with a timeout given returns its own exit code and output and timedOut is not true (check exit 0 and a non-zero exit); a command that never ends (node -e with setInterval, or a parent node process that starts a never-ending child node process and waits) with timeoutMs 1500 returns exitCode 124, timedOut true, the stderr line, output printed before the timeout is kept, and the call returns in well under 20 seconds; after it returns, the never-ending child is really gone - have the child write its pid into a file, then poll up to 5 seconds until process.kill(pid, 0) throws. Without timeoutMs a quick command behaves as before. runMutate: build a repo whose source has a loop that a mutation turns endless (e.g. `while (i < n) { ...; i++ }` style code where flipping a comparison makes the test hang - make sure at least one produced mutant really hangs by using a tiny file whose only mutation points are in that loop, and check the output rather than assuming which one), call runMutate with timeoutMs 2000: it returns (does not hang), prints at least one `[KILLED]` line ending in `[timeout]`, the summary line has the `(<n> by timeout)` form with the right n, the source file is byte-identical to the original afterwards, and the return code is 0 when every mutant is killed. A repo without any hanging mutant prints the old summary line with no parenthesis. Capture console output by temporarily replacing console.log / console.error. Give each node:test a generous timeout option (60s) because every hanging mutant costs the timeout."
+    }
+  },
+  "r5": {
+    "tests": {
+      "write": [
+        "v11-hard-tests.test.ts"
+      ],
+      "update": [
+        "v11-tests-gaps.test.ts"
+      ],
+      "updateNote": "v11-tests-gaps.test.ts was written against the older rules. Change only assertions that contradict (H1)-(H3): e.g. a fixture whose gap patch merely edits the file without adding a case must now add a real new case; the 'left ... unchanged' message is replaced by 'added no test case'; the gaps.md note text has the `(<n> new case(s))` part. Keep everything else.",
+      "files": "the 'v1.1 hardening (round 5)' comment above runTests in src/commands/tests.ts (H1, H2, H3)",
+      "extra": "Model it on tests/v11-tests-gaps.test.ts (same helpers and fixtures; read it first). H1: no requirement file and a blank one, with lock: no critic call, the stderr line, exact gaps.md content, gaps.md is in the lock commit, exit 0 and the lock exists; with gaps:false: no line and no gaps.md. H2, each as its own case, each asserting return 1, the exact stderr line, no lock.json and no new commit: patch only adds a comment; patch replaces one case by another (same count); patch adds one case but removes/renames an old one (names listed); patch adds a case to its own file but also edits another node's test file; and the good path: patch adds two cases -> 0 and the gaps.md note says `(2 new case(s))`. H3: make the scan throw by writing an unparsable .bastion/plan.json (commit it so the tree is clean) -> return 1, the stderr line, nothing locked; a cycle (the map says n1 dependsOn n2 while n2's test imports a file owned by n1... build the smallest such map) -> the cycle line and return 1."
+    },
+    "qa": {
+      "write": [
+        "v11-hard-qa.test.ts"
+      ],
+      "files": "the 'v1.1 hardening (round 5)' comment above runQa in src/commands/qa.ts (Q1, Q2)",
+      "extra": "Model it on tests/v11-qa.test.ts (read it first: how the qa fixture writes case scripts under .bastion/qa-cases and the report). Q1: a qa fixture that also modifies a tracked product file in its cwd, one that adds an untracked file outside .bastion, one that deletes a tracked file -> each returns 1 with the stderr line naming the path, no .bastion/qa-run.json, no feedback file, run-state completedNodes unchanged; a fixture that only writes under .bastion/ still passes. Important: the case scripts in the tampering fixture must pass ONLY thanks to the tampering (so that without Q1 the run would wrongly return 0). Q2: report { verdict: 'fail', findings: [], cases: [one passing case] } -> return 1 with the stderr line, qa-run.json and qa-report.json written, no feedback file; { verdict: 'pass', findings: [], cases: [passing] } -> 0."
+    },
+    "gaps": {
+      "write": [
+        "v11-hard-gaps.test.ts"
+      ],
+      "files": "the 'v1.1 hardening (round 5)' comments above checkQuotes in src/gaps.ts and above findGaps in src/commands/gaps.ts",
+      "extra": "checkQuotes is pure: cover full-width vs ASCII punctuation in a Chinese requirement, markdown markers (**bold**, `code`, table pipes, list/heading/quote markers) present on one side only, curly vs straight quotes, an ellipsis quote with `...` and with the U+2026 character (kept when the pieces occur in order; discarded when a piece is missing or the pieces occur in the wrong order), a quote that is only markers/whitespace (discarded), an invented quote (discarded), order preserved. findGaps / runGaps: model on tests/v11-gaps-cmd.test.ts: critic reports 2 gaps with invented quotes -> findGaps ok false with the exact error, runGaps returns 1; critic reports one good and one invented -> ok true, kept 1, discarded 1 and the stderr line with n = 1; zero gaps -> ok true and no stderr line."
+    },
+    "run": {
+      "write": [
+        "v11-hard-run.test.ts"
+      ],
+      "files": "killProcessTree and the round 5 comment above runTestCommandAsync in src/runner.ts; items (g) and (h) of the 'v1.1 hardening (round 5)' comment above runSwarm in src/commands/run.ts",
+      "extra": "(g) model on tests/v11-run-fixes.test.ts / tests/v04-helpers.ts createSwarmRepo (read how an agent script can save the prompt it received to a file). Run with mode 'single' and two plan nodes; before the run write .bastion/feedback/<second node id>.md with a distinctive sentence (as `bastion reopen` would) - the agent's prompt must contain `### <id>` and the sentence; a node without a feedback file gets no heading; after a passing run the feedback file is gone. In swarm mode a node's prompt contains only its own feedback. killProcessTree: start a node process that starts a never-ending child node process (child writes its pid to a file), call killProcessTree(parent.pid), then poll up to 5 s until process.kill(childPid, 0) throws; calling it for a pid that does not exist does not throw. runTestCommandAsync: a command that starts a never-ending grandchild which inherits stdout, timeout 1500 ms -> resolves in under 15 s with exitCode 124 and the grandchild is gone (same pid-file polling). (h): an agent command that starts a never-ending grandchild and waits, with a very small timeout (timeoutMinutes 0.03) and maxRetries 0: runSwarm returns (does not hang; give the test a 120 s timeout), the node is not completed, and the grandchild is gone afterwards."
+    },
+    "audit": {
+      "write": [
+        "v11-hard-audit.test.ts"
+      ],
+      "files": "the 'v1.1 hardening (round 5)' comment above runAudit in src/commands/audit.ts",
+      "extra": "Model it on the audit tests in tests/v1-audit-amend.test.ts or tests/bastion.test.ts (read how they build a repo with merges). Cases: a repo whose only merge happened before `bastion init`/lock -> the [SKIP] line, the 'no merge could be checked (1 skipped)' line, NOT the 'no locked-scope bypasses detected' line, exit 0; one merge before the lock and one clean merge after -> the SKIP line, the usual final line, then the '1 merge(s) checked, 1 skipped' line; only checked merges -> output has no SKIP and no extra line; a bypass after the lock plus a skipped merge -> still exit 1 and the bypass is reported."
+    }
+  }
+}

@@ -137,6 +137,12 @@ function renderDiffFor(a: BastionMap, b: MapValidation): string {
   return lines.join('\n') + '\n';
 }
 
+/**
+ * v1.1 addition to runMap (city tier): with opts.planners === 1 only the planner role is called (label and output file as
+ * before: map-a); the blind role is not called and no map-b.json is written. .bastion/map-diff.md is then exactly
+ * `# Map diff\n\nSingle map (city tier): no second map to compare.\n`. Everything else (validation, outputs, splitting,
+ * exit codes) is unchanged. planners undefined or 2 -> the v1.0 behaviour.
+ */
 export async function runMap(opts: MapOptions): Promise<number> {
   const root = getRepoRoot(opts.cwd) ?? opts.cwd;
   const splitting = opts.parent !== undefined;
@@ -205,16 +211,22 @@ export async function runMap(opts: MapOptions): Promise<number> {
   fs.rmSync(outA, { force: true });
   fs.rmSync(outB, { force: true });
 
-  await Promise.all([
+  const single = opts.planners === 1;
+  const calls = [
     runRole(plannerCmd, 'planner', {
       prompt: buildPrompt('planner', requirement, files, splitting),
       cwd: root, repoRoot: root, label: `${tag}map-a`, outputPath: outA, timeoutMs,
     }),
-    runRole(blindCmd, 'blind', {
-      prompt: buildPrompt('blind', requirement, files, splitting),
-      cwd: root, repoRoot: root, label: `${tag}map-b`, outputPath: outB, timeoutMs,
-    }),
-  ]);
+  ];
+  if (!single) {
+    calls.push(
+      runRole(blindCmd, 'blind', {
+        prompt: buildPrompt('blind', requirement, files, splitting),
+        cwd: root, repoRoot: root, label: `${tag}map-b`, outputPath: outB, timeoutMs,
+      }),
+    );
+  }
+  await Promise.all(calls);
 
   const a = readOutput(outA);
   if (!a.ok) {
@@ -222,8 +234,8 @@ export async function runMap(opts: MapOptions): Promise<number> {
     for (const e of a.errors) console.error(`  - ${e}`);
     return 1;
   }
-  const b = readOutput(outB);
-  if (!b.ok) console.error(`[bastion] map: the blind map is invalid (${b.errors.length} error(s)); continuing with the planner map.`);
+  const b = single ? null : readOutput(outB);
+  if (b && !b.ok) console.error(`[bastion] map: the blind map is invalid (${b.errors.length} error(s)); continuing with the planner map.`);
 
   let finalMap = a.map;
   if (splitting && base) {
@@ -242,7 +254,7 @@ export async function runMap(opts: MapOptions): Promise<number> {
     finalMap = check.map;
   }
 
-  writeOutputs(root, finalMap, renderDiffFor(a.map, b));
+  writeOutputs(root, finalMap, b ? renderDiffFor(a.map, b) : '# Map diff\n\nSingle map (city tier): no second map to compare.\n');
   console.log(`[bastion] map: ${finalMap.nodes.length} node(s) written to ${MAP_REL_PATH}. Review with "bastion review".`);
   return 0;
 }

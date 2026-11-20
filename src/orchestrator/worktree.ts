@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execGit } from '../git.js';
+import { execGit, gitIdentityArgs } from '../git.js';
 
 export interface WorktreeHandle {
   nodeId: string;
@@ -37,10 +37,10 @@ export function removeNodeWorktree(repoRoot: string, handle: WorktreeHandle): vo
   execGit(['branch', '-D', handle.branch], repoRoot);
 }
 
-/** Merge a verified node branch into the current integration branch with --no-ff. */
+/** Merge a verified node branch into the current integration branch with --no-ff. v1.1: passes gitIdentityArgs(repoRoot) before `merge` so the merge commit works without a configured git identity. */
 export function mergeNodeBranch(repoRoot: string, handle: WorktreeHandle, title: string): void {
   const res = execGit(
-    ['merge', '--no-ff', handle.branch, '-m', `bastion(${handle.nodeId}): ${title}`],
+    [...gitIdentityArgs(repoRoot), 'merge', '--no-ff', handle.branch, '-m', `bastion(${handle.nodeId}): ${title}`],
     repoRoot
   );
   if (!res.ok) {

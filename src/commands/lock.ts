@@ -9,7 +9,7 @@ import {
   writeLockToDisk,
 } from '../config.js';
 import { execGit, getDirtyFiles, getRepoRoot, resolveRef } from '../git.js';
-import { matchesAnyGlob, runTestCommand, sha256File, walkRepoFiles } from '../runner.js';
+import { contentHash, matchesAnyGlob, runTestCommand, walkRepoFiles } from '../runner.js';
 import { extractTestNames } from '../test-names.js';
 
 export interface LockOptions {
@@ -24,6 +24,10 @@ export interface LockOptions {
 
 const FAKE_RED_PATTERN = /(?:SyntaxError:|IndentationError:|ImportError:|ModuleNotFoundError:|ERR_MODULE_NOT_FOUND|Cannot find module ['"]|Cannot find package ['"])/;
 
+/**
+ * v1.1 addition to runLock: the sha256 recorded for every locked file is contentHash(file bytes) from src/runner.ts
+ * (CRLF and LF checkouts of the same file give the same lock). Nothing else changes.
+ */
 export function runLock(opts: LockOptions): number {
   const repoRoot = getRepoRoot(opts.cwd);
   if (!repoRoot) {
@@ -157,7 +161,7 @@ export function runLock(opts: LockOptions): number {
 
   const lockedFiles = lockedPaths.map((rel) => ({
     path: rel,
-    sha256: sha256File(path.join(repoRoot, rel)),
+    sha256: contentHash(fs.readFileSync(path.join(repoRoot, rel))),
   }));
 
   const testSummary = lockedPaths

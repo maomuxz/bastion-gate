@@ -18,6 +18,7 @@ export interface RoleCall {
   /** Absolute path the role must write its result to ({output} / BASTION_OUTPUT), if any. */
   outputPath?: string;
   timeoutMs?: number;
+  attempt?: number;
 }
 
 export interface RoleResult {
@@ -46,7 +47,7 @@ export function runRole(command: string, role: RoleName, call: RoleCall): Promis
     BASTION_OUTPUT: call.outputPath ?? '',
     BASTION_CLI: CLI_PATH,
     BASTION_HOME: call.repoRoot,
-    BASTION_ATTEMPT: '1',
+    BASTION_ATTEMPT: String(call.attempt ?? 1),
   };
   delete env.NODE_TEST_CONTEXT;
   return new Promise((resolve) => {

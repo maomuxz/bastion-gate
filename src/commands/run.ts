@@ -8,7 +8,8 @@ import {
   readConfigFromDisk,
   readPlanFromDisk,
 } from '../config.js';
-import { execGit, getDirtyFiles, getRepoRoot, resolveRef } from '../git.js';
+import { baselineDrift, driftMessage } from '../baseline.js';
+import { execGit, getDirtyFiles, getRepoRoot, gitIdentityArgs, resolveRef } from '../git.js';
 import { buildExecutionWaves } from '../orchestrator/dag.js';
 import {
   createNodeWorktree,
@@ -24,7 +25,7 @@ import { resolveAgentCommand } from '../roles.js';
 import { mergeNodesForSingle, resolveRunMode, RunMode, SINGLE_NODE_ID } from '../single.js';
 import { createSlotPool } from '../slots.js';
 import { blockingDirtyFiles } from '../dirty.js';
-import { runTestCommandAsync } from '../runner.js';
+import { killProcessTree, runTestCommandAsync } from '../runner.js';
 import { readRunState, RunState, writeRunState } from '../state.js';
 import { runGateAsync } from './gate.js';
 
@@ -52,6 +53,10 @@ export interface RunOptions {
   maxMinutes?: number;
   /** v1.0: force 'single' (one agent session for the whole plan) or 'swarm'. */
   mode?: RunMode;
+  /** v1.1 switch: false = construction AIs may not queue questions (see runSwarm (e)). Default true. */
+  questions?: boolean;
+  /** v1.1 switch: false = budget limits are not enforced in this run (see runSwarm (f)). Default true. */
+  budget?: boolean;
 }
 
 /** v1.0: QA feedback for a reopened node (written by `bastion qa`, consumed on the next attempt). */
@@ -59,6 +64,19 @@ const QA_FEEDBACK_DIR = path.join('.bastion', 'feedback');
 function readQaFeedback(repoRoot: string, nodeId: string): string {
   const p = path.join(repoRoot, QA_FEEDBACK_DIR, `${nodeId}.md`);
   return fs.existsSync(p) ? fs.readFileSync(p, 'utf8').trim() : '';
+}
+
+/** v1.1: next free `<id>-attempt-<k>.log` name (k = highest existing + 1). */
+function nextAttemptLogName(logsDir: string, nodeId: string): string {
+  let max = 0;
+  const prefix = `${nodeId}-attempt-`;
+  if (fs.existsSync(logsDir)) {
+    for (const f of fs.readdirSync(logsDir)) {
+      const m = f.startsWith(prefix) ? /^(\d+)\.log$/.exec(f.slice(prefix.length)) : null;
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+  }
+  return `${prefix}${max + 1}.log`;
 }
 
 /** Why a node attempt loop stopped without passing. */
@@ -106,7 +124,7 @@ function stageSafeWorktreeFiles(worktreeDir: string, nodeId: string): boolean {
   }
 
   const commitRes = execGit(
-    ['-c', 'user.name=bastion', '-c', 'user.email=bastion@local', 'commit', '-m', `feat(${nodeId}): apply verified changes`],
+    [...gitIdentityArgs(worktreeDir), 'commit', '-m', `feat(${nodeId}): apply verified changes`],
     worktreeDir
   );
   if (!commitRes.ok) {
@@ -125,7 +143,8 @@ function runAgentAsync(
   logFile: string,
   promptFile: string,
   timeoutMs: number,
-  repoRoot: string
+  repoRoot: string,
+  questionsOff = false
 ): Promise<AgentExecResult> {
   return new Promise((resolve) => {
     const basePrompt = agentProtocol(node.id, BASTION_CLI_PATH) + node.prompt;
@@ -158,23 +177,44 @@ function runAgentAsync(
       BASTION_HOME: repoRoot,
     };
     delete env.NODE_TEST_CONTEXT;
+    if (questionsOff) env.BASTION_QUESTIONS = 'off';
+    else delete env.BASTION_QUESTIONS;
 
     const child = spawn(cmd, {
       cwd: worktreeDir,
       env,
       shell: true,
+      detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     let output = '';
     let lineBuf = '';
     let timedOut = false;
+    let settled = false;
+    let grace: NodeJS.Timeout | null = null;
+
+    const finish = (code: number | null): void => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      if (grace) clearTimeout(grace);
+      if (lineBuf.trim()) console.log(`  [${node.id}] ${lineBuf}`);
+      logStream.end();
+      resolve({ exitCode: timedOut ? 124 : (code ?? 1), output, timedOut });
+    };
 
     const timer = timeoutMs > 0
       ? setTimeout(() => {
           timedOut = true;
           logStream.write(`\n[bastion] Agent timed out after ${timeoutMs}ms.\n`);
-          child.kill();
+          if (child.pid !== undefined) killProcessTree(child.pid);
+          try { child.kill('SIGKILL'); } catch { /* ignore */ }
+          grace = setTimeout(() => {
+            child.stdout?.destroy();
+            child.stderr?.destroy();
+            finish(124);
+          }, 2000);
         }, timeoutMs)
       : null;
 
@@ -192,15 +232,42 @@ function runAgentAsync(
 
     child.stdout?.on('data', onChunk);
     child.stderr?.on('data', onChunk);
-    child.on('close', (code) => {
-      if (timer) clearTimeout(timer);
-      if (lineBuf.trim()) console.log(`  [${node.id}] ${lineBuf}`);
-      logStream.end();
-      resolve({ exitCode: timedOut ? 124 : (code ?? 1), output, timedOut });
-    });
+    child.on('error', () => finish(1));
+    child.on('close', (code) => finish(code));
   });
 }
 
+/**
+ * v1.1 additions to runSwarm:
+ * (a) Baseline drift stops for a human. Once the integration branch is known (a fresh one or the resumed one) and before
+ *     any agent call of this session: drift = baselineDrift(repoRoot, baseRef, integrationBranch) (src/baseline.ts).
+ *     Non-empty -> print driftMessage(...) to stderr and return EXIT_WAITING (2). No agent is called, no attempt is
+ *     counted (agentCalls unchanged) and completedNodes is unchanged.
+ * (b) Attempt logs are never overwritten: the log of an attempt is `.bastion/logs/<id>-attempt-<k>.log` where k is one
+ *     more than the highest k already present for that node id in the logs directory (1 when none). The console line
+ *     shows that real file name. The "Attempt i/N" counter and BASTION_ATTEMPT keep counting from 1 in each session.
+ * (c) run-state extraDeps (written by `bastion reopen --before`): a node is ready only when its plan dependsOn AND its
+ *     extraDeps ids are all complete; ids that are not plan nodes are ignored. extraDeps is carried over unchanged
+ *     whenever run-state is written.
+ * (d) The commit of verified changes passes gitIdentityArgs(worktreeDir) instead of always forcing the bastion identity.
+ * (e) opts.questions === false: every agent process gets env BASTION_QUESTIONS=off (otherwise the variable is not set
+ *     by bastion; an inherited value is removed). `bastion ask` refuses to queue a question when it sees that value, so
+ *     no node ends up blocked waiting for an answer.
+ * (f) opts.budget === false: neither config.budget nor --max-calls / --max-minutes stop the run (it never returns
+ *     EXIT_BUDGET and never records budgetHit); agentCalls and accumulatedMinutes are still counted.
+ */
+/*
+ * v1.1 hardening (round 5). These rules replace the older wording above wherever they differ.
+ * (g) Single mode feedback. In single mode the one agent session builds every plan node, so its prompt must carry the
+ *     feedback written for ANY of them: the QA / reopen feedback section contains, for every plan node (plan order)
+ *     that has a non-empty .bastion/feedback/<id>.md, a line `### <id>` followed by that file's content, plus the
+ *     content of .bastion/feedback/all-nodes.md when it exists. (Before, only all-nodes.md was read, so
+ *     `bastion reopen <node> --reason ...` and QA findings never reached the agent.) The files are deleted after the
+ *     gate passed, as before. Swarm mode is unchanged (each node reads its own file).
+ * (h) Agent timeout. When an agent call times out, the whole process tree is terminated with killProcessTree from
+ *     ../runner.js (POSIX: spawn detached), and the call resolves within about 5 seconds after the timeout even if a
+ *     surviving process keeps the pipes open. The attempt is reported as timed out exactly as before.
+ */
 export async function runSwarm(opts: RunOptions): Promise<number> {
   const repoRoot = getRepoRoot(opts.cwd);
   if (!repoRoot) {
@@ -255,6 +322,7 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
   const completedSet = new Set<string>();
   const blockedSet = new Set<string>();
   const runningSet = new Set<string>();
+  let extraDeps: Record<string, string[]> | undefined;
   let agentCalls = 0;
   let priorMinutes = 0;
   let budgetHit: 'calls' | 'minutes' | null = null;
@@ -272,10 +340,16 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
     for (const id of prev.blockedNodes ?? []) blockedSet.add(id);
     agentCalls = prev.agentCalls ?? 0;
     priorMinutes = prev.accumulatedMinutes ?? 0;
+    extraDeps = prev.extraDeps;
     const checkoutRes = execGit(['checkout', integrationBranch], repoRoot);
     if (!checkoutRes.ok) {
       console.error(`[bastion] Error checking out ${integrationBranch}: ${checkoutRes.stderr}`);
       return 1;
+    }
+    const resumeDrift = baselineDrift(repoRoot, baseRef, integrationBranch);
+    if (resumeDrift.length > 0) {
+      for (const line of driftMessage(resumeDrift, baseRef, integrationBranch)) console.error(line);
+      return EXIT_WAITING;
     }
     console.log(`[bastion] Resuming "${integrationBranch}" (${completedSet.size} node(s) already completed).`);
   } else {
@@ -285,6 +359,11 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
     if (!checkoutRes.ok) {
       console.error(`[bastion] Error creating integration branch ${integrationBranch}: ${checkoutRes.stderr}`);
       return 1;
+    }
+    const freshDrift = baselineDrift(repoRoot, baseRef, integrationBranch);
+    if (freshDrift.length > 0) {
+      for (const line of driftMessage(freshDrift, baseRef, integrationBranch)) console.error(line);
+      return EXIT_WAITING;
     }
   }
 
@@ -297,6 +376,7 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
       accumulatedMinutes: Math.round(minutesUsed() * 1000) / 1000,
       blockedNodes: [...blockedSet],
       runningNodes: [...runningSet],
+      ...(extraDeps ? { extraDeps } : {}),
       ...(budgetHit ? { budgetHit } : {}),
     };
     writeRunState(repoRoot, state);
@@ -328,7 +408,16 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
 
           // Answers to this node's earlier tier-3 questions are appended to its prompt (v0.4).
           const answers = answersForNode(repoRoot, node.id);
-          const qaFeedback = readQaFeedback(repoRoot, node.id);
+          let qaFeedback = readQaFeedback(repoRoot, node.id);
+          if (node.id === SINGLE_NODE_ID) {
+            const parts: string[] = [];
+            for (const pn of plan.nodes) {
+              const t = readQaFeedback(repoRoot, pn.id);
+              if (t) parts.push(`### ${pn.id}\n${t}`);
+            }
+            if (qaFeedback) parts.push(qaFeedback);
+            qaFeedback = parts.join('\n\n');
+          }
           let nodePrompt = node.prompt;
           if (answers.length > 0) {
             nodePrompt += `\n\n[Bastion - Human Answers]\n${answers
@@ -340,16 +429,17 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
 
           let feedback = '';
           for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-            const hit = checkBudget({ agentCalls, minutes: minutesUsed() }, limits);
+            const hit = opts.budget === false ? null : checkBudget({ agentCalls, minutes: minutesUsed() }, limits);
             if (hit) {
               budgetHit = hit;
               console.error(`[${node.id}] Budget limit reached (${hit}); not starting attempt ${attempt}.`);
               return { ok: false, node, handle, stop: 'budget' };
             }
 
-            const logFile = path.join(logsDir, `${node.id}-attempt-${attempt}.log`);
+            const logName = nextAttemptLogName(logsDir, node.id);
+            const logFile = path.join(logsDir, logName);
             const promptFile = path.join(logsDir, `${node.id}-prompt.txt`);
-            console.log(`[${node.id}] Attempt ${attempt}/${maxRetries + 1} in ${handle.branch} (log: .bastion/logs/${node.id}-attempt-${attempt}.log)`);
+            console.log(`[${node.id}] Attempt ${attempt}/${maxRetries + 1} in ${handle.branch} (log: .bastion/logs/${logName})`);
 
             agentCalls++;
             const agentRes = await runAgentAsync(
@@ -361,7 +451,8 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
               logFile,
               promptFile,
               timeoutMs,
-              repoRoot
+              repoRoot,
+              opts.questions === false
             );
             saveState();
 
@@ -413,12 +504,14 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
           return { ok: false, node, handle, stop: 'failed' };
   };
 
+  const planIds = new Set(plan.nodes.map((n) => n.id));
   const isReady = (n: PlanNode) =>
     !completedSet.has(n.id) &&
     !startedSet.has(n.id) &&
     !failedSet.has(n.id) &&
     !waitingSet.has(n.id) &&
-    (n.dependsOn ?? []).every((d) => completedSet.has(d));
+    (n.dependsOn ?? []).every((d) => completedSet.has(d)) &&
+    (extraDeps?.[n.id] ?? []).every((d) => !planIds.has(d) || completedSet.has(d));
 
   const running = new Map<string, Promise<void>>();
 
@@ -436,8 +529,8 @@ export async function runSwarm(opts: RunOptions): Promise<number> {
           console.log(`[bastion] Merging ${handle.branch} -> ${integrationBranch}...`);
           mergeNodeBranch(repoRoot, handle, node.title);
           const doneIds = node.id === SINGLE_NODE_ID ? plan.nodes.map((n) => n.id) : [node.id];
-          for (const id of doneIds) {
-            completedSet.add(id);
+          for (const id of node.id === SINGLE_NODE_ID ? [...doneIds, SINGLE_NODE_ID] : doneIds) {
+            if (id !== SINGLE_NODE_ID) completedSet.add(id);
             const fb = path.join(repoRoot, QA_FEEDBACK_DIR, `${id}.md`);
             if (fs.existsSync(fb)) fs.rmSync(fb, { force: true });
           }

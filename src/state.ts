@@ -16,6 +16,8 @@ export interface RunState {
   blockedNodes?: string[];
   /** v0.4.1: nodes whose agent/gate is running right now (empty when idle). */
   runningNodes?: string[];
+  /** v1.1: extra scheduling edges added by `bastion reopen --before`: extraDeps[node] must be complete before node starts. */
+  extraDeps?: Record<string, string[]>;
   /** v0.4: set when the last session stopped because a budget limit was hit. */
   budgetHit?: 'calls' | 'minutes';
 }

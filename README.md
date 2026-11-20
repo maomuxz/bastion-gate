@@ -14,6 +14,30 @@
 
 ---
 
+## When not to use Bastion
+
+We measured Bastion once against plain single-session work, and it lost. Please read this before adopting it.
+
+The test: one small spreadsheet engine (a few hundred lines), one written spec, 86 hidden tests that no builder ever saw, one model, each setup run once.
+
+| Setup | Hidden tests passed | Cost | Machine time |
+| --- | --- | --- | --- |
+| One session, given only the spec | 86/86 | $0.42 | a few minutes |
+| One session, given spec + design | 84/86 | $0.48 | a few minutes |
+| Parallel workers without the gate | 84/86 | $1.37 | a few minutes |
+| Full Bastion flow (v1.0) | 84/86 | $4.32 | about 15 minutes |
+| `village` preset (v1.1), run later on the same target | 86/86 | $1.50 | about 8 minutes |
+
+What this means:
+
+- **For a project of a few hundred lines, a single session is faster, cheaper and at least as correct.** Do not use Bastion there.
+- **The value on large projects has not been measured.** The parallel and planning parts exist and are tested as software, but we have no evidence yet that they produce better results than one session.
+- **The anti-cheating value has not been measured either.** In this test no setup tried to weaken a test, so the gate had nothing to catch. What Bastion can show is evidence (tests were red before the lock, every merge passed the gate, the audit found no bypass); whether that evidence is worth the cost depends on how much you need it.
+- The v1.1 `village` preset matched the single session on the hidden tests, at 3.6 times its cost and about 3 times its time. It left evidence behind (red-first lock, 7 gaps found and patched before the lock, gate, two black-box QA scripts re-run by Bastion, clean audit); it did not produce a better result than the plain session did.
+- One target, one model, one run per setup: the 84 vs 86 difference is a single bug and should not be read as a stable gap.
+
+Since v1.1 the default preset (`village`) keeps only the wall (tests written from the requirement and locked, a gap check before the lock, the gate, a QA step that really runs the product, the audit) around one construction session, and leaves planning and parallel work switched off. Larger presets (`city`, `capital`) switch them on; none of those switches has been shown to pay for itself yet.
+
 ## Quick Start (Test Gate)
 
 ```bash
@@ -105,6 +129,8 @@ npx bastion-gate run --setup "npm ci" --agent "claude -p < {promptFile}" --concu
   Dry-run by default: previews leftover worktrees and temporary `bastion/<node>` branches. Pass `--yes` to delete them (preserves `bastion/run-*` integration branches unless `--runs` is also passed for already-merged runs).
 
 ## Original design vs implemented
+
+✅ below means "implemented and covered by its own tests". It does not mean "shown to improve results" - see [When not to use Bastion](#when-not-to-use-bastion).
 
 <!-- feature-matrix:start -->
 | Feature | Status | What it does |

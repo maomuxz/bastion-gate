@@ -3,11 +3,10 @@ import * as path from 'node:path';
 import { BastionPlan } from './config.js';
 
 /** Project map produced by the planner roles (`bastion map`). Paths are repo-relative, POSIX. */
-export const MAP_REL_PATH = '.bastion/map.json';
+import { ACCEPTANCE_REL_PATH, INTERFACES_REL_PATH, MAP_REL_PATH } from './config.js';
+export { ACCEPTANCE_REL_PATH, INTERFACES_REL_PATH, MAP_REL_PATH };
 export const MAPS_DIR_REL = '.bastion/maps';
 export const MAP_DIFF_REL_PATH = '.bastion/map-diff.md';
-export const INTERFACES_REL_PATH = '.bastion/interfaces.md';
-export const ACCEPTANCE_REL_PATH = '.bastion/acceptance.md';
 
 export interface MapNode {
   id: string;

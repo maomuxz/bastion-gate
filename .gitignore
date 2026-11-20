@@ -20,3 +20,9 @@ dist-test/
 .bastion/requirement.md
 *.log
 .DS_Store
+dist/
+.bastion/qa-run.json
+.bastion/qa-cases/
+.bastion/gaps.json
+.bastion/gaps-probe.json
+.bastion/gaps-probe-judge.json

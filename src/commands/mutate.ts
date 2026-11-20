@@ -9,6 +9,11 @@ export interface MutateOptions {
   cwd: string;
   files?: string[];
   maxMutations?: number;
+  /**
+   * v1.1: limit for ONE test run against a mutant, in milliseconds. Default: max(60000, 4 x the duration of the
+   * baseline test run). The baseline run itself has no limit.
+   */
+  timeoutMs?: number;
 }
 
 interface Mutant {
@@ -138,6 +143,17 @@ function sampleMutantsRoundRobin(perFile: Mutant[][], max: number): Mutant[] {
  * Lightweight mutation spot-check: runs inside an isolated temporary worktree
  * (when clean git HEAD exists) so user source files are never left dirty even on Ctrl+C.
  */
+/**
+ * v1.1 addition (everything else unchanged, the function stays synchronous):
+ * a mutant can turn a loop into an endless one, and the test run then never returns. Every test run against a mutant
+ * goes through runTestCommand(command, dir, timeout) with the timeout from MutateOptions.timeoutMs. A run that times
+ * out counts as killed and its line is `  [KILLED]   <file>:<line> (<description>) [timeout]`; the mutated file is
+ * restored as usual and the remaining mutants are still checked. When at least one mutant timed out the summary line is
+ * `[bastion] Mutation score: <killed>/<total> killed (<n> by timeout).` - with no timeout it is exactly the old
+ * `[bastion] Mutation score: <killed>/<total> killed.`. No test process is left running after runMutate returns.
+ * CLI: `bastion mutate --timeout <seconds>` (a positive number; anything else prints
+ * `[bastion] mutate: --timeout needs a positive number of seconds.` to stderr and returns 1 without running tests).
+ */
 export function runMutate(opts: MutateOptions): number {
   const repoRoot = getRepoRoot(opts.cwd) ?? path.resolve(opts.cwd);
   const config = readConfigFromDisk(repoRoot);
@@ -193,6 +209,10 @@ export function runMutate(opts: MutateOptions): number {
 
     console.log(`[bastion] Running ${allMutants.length} mutation spot-check(s)${workHandle ? ' (in isolated worktree)' : ''}...`);
     let killed = 0;
+    let timeouts = 0;
+    const mutantTimeout = opts.timeoutMs && opts.timeoutMs > 0
+      ? opts.timeoutMs
+      : Math.max(60_000, 4 * baseline.durationMs);
     const survived: Mutant[] = [];
 
     for (const mutant of allMutants) {
@@ -200,8 +220,12 @@ export function runMutate(opts: MutateOptions): number {
       const original = fs.readFileSync(full, 'utf8');
       try {
         fs.writeFileSync(full, mutant.mutatedContent, 'utf8');
-        const res = runTestCommand(config.testCommand, execRoot);
-        if (res.exitCode !== 0) {
+        const res = runTestCommand(config.testCommand, execRoot, mutantTimeout);
+        if (res.timedOut) {
+          killed++;
+          timeouts++;
+          console.log(`  [KILLED]   ${mutant.file}:${mutant.line} (${mutant.description}) [timeout]`);
+        } else if (res.exitCode !== 0) {
           killed++;
           console.log(`  [KILLED]   ${mutant.file}:${mutant.line} (${mutant.description})`);
         } else {
@@ -213,7 +237,7 @@ export function runMutate(opts: MutateOptions): number {
       }
     }
 
-    console.log(`\n[bastion] Mutation score: ${killed}/${allMutants.length} killed.`);
+    console.log(`\n[bastion] Mutation score: ${killed}/${allMutants.length} killed${timeouts > 0 ? ` (${timeouts} by timeout)` : ''}.`);
     if (survived.length > 0) {
       console.error('[bastion] Some mutations survived — tests may have blind spots.');
       return 1;

@@ -1,4 +1,7 @@
 import {
+  ACCEPTANCE_REL_PATH,
+  INTERFACES_REL_PATH,
+  MAP_REL_PATH,
   CONFIG_REL_PATH,
   LOCK_REL_PATH,
   PLAN_REL_PATH,
@@ -13,7 +16,6 @@ import {
   resolveRef,
 } from '../git.js';
 import { runPreChecks, runPreChecksAsync } from '../checks.js';
-import { ACCEPTANCE_REL_PATH, INTERFACES_REL_PATH, MAP_REL_PATH } from '../map.js';
 import { summarizeTestOutput } from '../output.js';
 import { matchesAnyGlob, runTestCommand, runTestCommandAsync } from '../runner.js';
 
@@ -29,7 +31,7 @@ export interface GateResult {
   feedback: string;
 }
 
-function checkGateIntegrity(opts: GateOptions): {
+export function checkGateIntegrity(opts: GateOptions): {
   ok: false;
   feedback: string;
 } | {

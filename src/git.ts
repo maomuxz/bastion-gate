@@ -23,6 +23,16 @@ export function execGit(args: string[], cwd: string): GitResult {
   };
 }
 
+/**
+ * v1.1: identity for commits bastion makes itself. Returns ['-c', 'user.name=bastion', '-c', 'user.email=bastion@local']
+ * when the repo at `cwd` has no user.email configured (so commits work on a machine without a git identity), else []
+ * (the user's own identity is used). Put the result before the git subcommand: execGit([...gitIdentityArgs(cwd), 'commit', ...]).
+ */
+export function gitIdentityArgs(cwd: string): string[] {
+  const res = execGit(['config', 'user.email'], cwd);
+  return res.ok && res.stdout.trim() ? [] : ['-c', 'user.name=bastion', '-c', 'user.email=bastion@local'];
+}
+
 /** Normalize a relative path to forward slashes for cross-platform git comparisons. */
 export function toPosixPath(p: string): string {
   return p.replace(/\\/g, '/').replace(/^\.\//, '');

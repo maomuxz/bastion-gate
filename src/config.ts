@@ -6,6 +6,10 @@ export const BASTION_DIR = '.bastion';
 export const CONFIG_REL_PATH = '.bastion/config.json';
 export const LOCK_REL_PATH = '.bastion/lock.json';
 export const PLAN_REL_PATH = '.bastion/plan.json';
+// Planning artefacts that the gate protects as baseline files (defined here so the kernel does not import src/map.ts).
+export const MAP_REL_PATH = '.bastion/map.json';
+export const INTERFACES_REL_PATH = '.bastion/interfaces.md';
+export const ACCEPTANCE_REL_PATH = '.bastion/acceptance.md';
 
 export interface BastionConfig {
   version: 1;
@@ -28,6 +32,8 @@ export interface BastionConfig {
   budget?: BastionBudget;
   /** v1.0: 'auto' runs small plans as one agent session, 'swarm' (default when unset) always parallel, 'single' always one session. */
   runMode?: 'auto' | 'swarm' | 'single';
+  /** v1.1: raw per-switch overrides of the preset (validated by resolveSwitches in src/tier.ts). */
+  switches?: Record<string, unknown>;
   /** v1.0: in auto mode, plans with at most this many nodes run as a single session (default 3). */
   singleMaxNodes?: number;
   /** v1.0: at most this many gate/test runs at once across all nodes (unset = unlimited). */
@@ -35,7 +41,7 @@ export interface BastionConfig {
 }
 
 /** blind = the second, independent planner ("white-paper redo"); falls back to planner in `bastion map`. */
-export type RoleName = 'planner' | 'blind' | 'tester' | 'worker' | 'qa';
+export type RoleName = 'planner' | 'blind' | 'tester' | 'worker' | 'qa' | 'critic';
 
 export type BastionRoles = Partial<Record<RoleName, string>>;
 
@@ -202,13 +208,14 @@ function parseConfigJson(raw: string, label: string): BastionConfig {
       ? { checks: parsed.checks.filter((c): c is string => typeof c === 'string' && c.trim() !== '').map((c) => c.trim()) }
       : {}),
     ...parseBudget(parsed.budget),
+    ...(typeof parsed.switches === 'object' && parsed.switches !== null && !Array.isArray(parsed.switches) ? { switches: parsed.switches as Record<string, unknown> } : {}),
     ...(parsed.runMode === 'auto' || parsed.runMode === 'swarm' || parsed.runMode === 'single' ? { runMode: parsed.runMode } : {}),
     ...(typeof parsed.singleMaxNodes === 'number' && parsed.singleMaxNodes >= 0 ? { singleMaxNodes: Math.floor(parsed.singleMaxNodes) } : {}),
     ...(typeof parsed.compileSlots === 'number' && parsed.compileSlots > 0 ? { compileSlots: Math.floor(parsed.compileSlots) } : {}),
   };
 }
 
-const ROLE_NAMES: RoleName[] = ['planner', 'blind', 'tester', 'worker', 'qa'];
+const ROLE_NAMES: RoleName[] = ['planner', 'blind', 'tester', 'worker', 'qa', 'critic'];
 
 function parseRoles(raw: unknown): { roles?: BastionRoles } {
   if (!raw || typeof raw !== 'object') return {};

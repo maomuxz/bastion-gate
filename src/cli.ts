@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { parseArgs } from 'node:util';
 import { runAudit } from './commands/audit.js';
+import { runCheck } from './commands/check.js';
 import { runClean } from './commands/clean.js';
 import { runGate } from './commands/gate.js';
 import { runInit } from './commands/init.js';
@@ -12,14 +15,19 @@ import { answerQuestion } from './inbox.js';
 import { formatDecisions, readDecisions } from './ledger.js';
 import { runAsk, runDecide } from './outbox.js';
 import { summaryLines } from './summary.js';
+import { runContract } from './commands/contract.js';
 import { runFlow } from './commands/flow.js';
+import { runGaps } from './commands/gaps.js';
 import { runMap } from './commands/map.js';
 import { runQa } from './commands/qa.js';
+import { runReopen } from './commands/reopen.js';
 import { runRegress } from './commands/regress.js';
 import { runReview } from './commands/review.js';
 import { runScaffold } from './commands/scaffold.js';
+import { runSheet } from './commands/sheet.js';
 import { runTests } from './commands/tests.js';
 import { getRepoRoot } from './git.js';
+import { parseTier } from './tier.js';
 import { BASTION_VERSION } from './version.js';
 
 const HELP = `bastion (bastion-gate) v${BASTION_VERSION}
@@ -27,16 +35,23 @@ Multi-agent parallel development & hard-gate CLI for AI coding agents.
 
 Usage:
   bastion init [--test-cmd "<cmd>"] [--base <branch>] [--force]
+  bastion sheet [--config <path>] [--out <path>] [--check]
+  bastion check [--config <path>] [--base <ref>] [--lock] [--agent "<cmd>"] [--max-retries <0..2>] [--json] [files...]
   bastion lock [--base <ref>] [--amend --reason "<why>"] [--allow-dirty] [files...]
   bastion gate [--base <ref>]
   bastion plan [--init] [--force]
   bastion run [--base <ref>] [--agent "<cmd>"] [--setup "<cmd>"] [--concurrency <n>] [--max-retries <n>] [--verify-runs <n>] [--timeout <min>] [--max-calls <n>] [--max-minutes <n>] [--resume]
-  bastion flow ["<requirement>"]          the whole fortress: map -> review -> scaffold -> tests -> run -> qa (resumable)
+  bastion flow [--tier <village|city|capital>] ["<requirement>" | --requirement-file <path>]
+                                          the whole flow (resumable). Tier is fixed at the start:
+                                          village = thin contract, one session, no approval stop;
+                                          city = one map, one block after another; capital = two maps, parallel (default)
+  bastion contract "<requirement>"        village tier: one call writes the thin public interface as stubs
   bastion map "<requirement>" [--node <id>]   two independent planners draw the map; diff, interfaces, acceptance, plan
   bastion review [--approve]              one plain-language page to approve the map
   bastion scaffold                        create stub files with the agreed interfaces
-  bastion tests [--lock]                  tester writes red acceptance tests per node, then lock
-  bastion qa                              acceptance review of the integration branch; reopens nodes on failure
+  bastion tests [--lock] [--no-gaps]      tester writes red acceptance tests per node, gap check, then lock
+  bastion gaps [--probe] [--drop "<file>::<case>"]  critic lists requirement rules no test checks (probe: hide one case)
+  bastion qa [--ref <ref>]                black-box cases really run against the integrated code (or any ref)
   bastion summary                         three lines: done / decided for you / waiting for you
   bastion decisions                       tier-2 decisions agents made (what / why / how to undo)
   bastion answer <id> "<answer>"          answer a tier-3 question, then: bastion run --resume
@@ -44,9 +59,11 @@ Usage:
 Inside a node (agents, via node "$BASTION_CLI" ...):
   bastion decide --title "<t>" --chosen "<c>" --why "<w>" [--undo "<u>"] [--node <id>]
   bastion ask --question "<q>" [--recommend "<r>"] [--node <id>]
-  bastion mutate [--max <n>] [files...]
+  bastion mutate [--max <n>] [--timeout <seconds>] [files...]
   bastion audit [--limit <n>] [--regress "<cmd>" [--base <ref>]]
   bastion clean [--yes] [--runs]
+  bastion reopen <node> --reason "<why>" [--before <other>]   rebuild an already merged block (then: bastion run --resume)
+  bastion --version
   bastion --help
 `;
 
@@ -60,6 +77,10 @@ async function main(): Promise<number> {
   const argv = process.argv.slice(2);
   const subcommand = argv[0];
 
+  if (subcommand === '--version' || subcommand === '-v' || subcommand === 'version') {
+    console.log(BASTION_VERSION);
+    return 0;
+  }
   if (!subcommand || subcommand === '--help' || subcommand === '-h') {
     console.log(HELP);
     return 0;
@@ -85,6 +106,53 @@ async function main(): Promise<number> {
           testCommand: values['test-cmd'],
           baseBranch: values.base,
           force: values.force,
+        });
+      }
+
+      case 'sheet': {
+        const { values } = parseArgs({
+          args: rest,
+          options: {
+            config: { type: 'string' },
+            out: { type: 'string' },
+            check: { type: 'boolean', default: false },
+          },
+          allowPositionals: false,
+        });
+        return runSheet({
+          cwd,
+          configPath: values.config,
+          outputPath: values.out,
+          checkOnly: values.check,
+        });
+      }
+
+      case 'check': {
+        const { values, positionals } = parseArgs({
+          args: rest,
+          options: {
+            config: { type: 'string' },
+            base: { type: 'string' },
+            lock: { type: 'boolean', default: false },
+            agent: { type: 'string' },
+            'max-retries': { type: 'string' },
+            json: { type: 'boolean', default: false },
+          },
+          allowPositionals: true,
+        });
+        const parsedRetries =
+          values['max-retries'] !== undefined
+            ? (values['max-retries'].trim() === '' ? NaN : Number(values['max-retries']))
+            : undefined;
+        return await runCheck({
+          cwd,
+          configPath: values.config,
+          baseRef: values.base,
+          lock: values.lock,
+          agentCommand: values.agent,
+          maxRetries: parsedRetries,
+          json: values.json,
+          files: positionals,
         });
       }
 
@@ -175,8 +243,26 @@ async function main(): Promise<number> {
       }
 
       case 'flow': {
-        const { positionals } = parseArgs({ args: rest, options: {}, allowPositionals: true });
-        return await runFlow({ cwd, requirement: positionals.join(' ').trim() || undefined });
+        const { values, positionals } = parseArgs({ args: rest, options: { tier: { type: 'string' }, 'requirement-file': { type: 'string' } }, allowPositionals: true });
+        let tier;
+        if (values.tier !== undefined) {
+          tier = parseTier(values.tier) ?? undefined;
+          if (!tier) {
+            console.error(`[bastion] flow: unknown tier "${values.tier}" (use village, city or capital).`);
+            return 1;
+          }
+        }
+        let flowRequirement = positionals.join(' ').trim() || undefined;
+        if (values['requirement-file'] !== undefined) {
+          // A long requirement (a whole spec) does not fit on a command line; read it from a file, verbatim.
+          try {
+            flowRequirement = fs.readFileSync(path.resolve(cwd, values['requirement-file']), 'utf8').replace(/^﻿/, '').trim() || undefined;
+          } catch (e) {
+            console.error(`[bastion] flow: cannot read --requirement-file: ${(e as Error).message}`);
+            return 1;
+          }
+        }
+        return await runFlow({ cwd, requirement: flowRequirement, tier });
       }
 
       case 'map': {
@@ -204,14 +290,42 @@ async function main(): Promise<number> {
       case 'tests': {
         const { values } = parseArgs({
           args: rest,
-          options: { lock: { type: 'boolean', default: false }, concurrency: { type: 'string' } },
+          options: { lock: { type: 'boolean', default: false }, concurrency: { type: 'string' }, 'no-gaps': { type: 'boolean', default: false } },
           allowPositionals: false,
         });
-        return await runTests({ cwd, lock: values.lock, concurrency: values.concurrency ? Number(values.concurrency) : undefined });
+        return await runTests({
+          cwd, lock: values.lock, gaps: !values['no-gaps'],
+          concurrency: values.concurrency ? Number(values.concurrency) : undefined,
+        });
       }
 
-      case 'qa':
-        return await runQa({ cwd });
+      case 'gaps': {
+        const { values } = parseArgs({
+          args: rest,
+          options: { probe: { type: 'boolean', default: false }, drop: { type: 'string' } },
+          allowPositionals: false,
+        });
+        return await runGaps({ cwd, probe: values.probe || values.drop !== undefined, drop: values.drop });
+      }
+
+      case 'qa': {
+        const { values } = parseArgs({ args: rest, options: { ref: { type: 'string' } }, allowPositionals: false });
+        return await runQa({ cwd, ref: values.ref });
+      }
+
+      case 'reopen': {
+        const { values, positionals } = parseArgs({
+          args: rest,
+          options: { reason: { type: 'string' }, before: { type: 'string' } },
+          allowPositionals: true,
+        });
+        return runReopen({ cwd, node: positionals[0] ?? '', reason: values.reason ?? '', before: values.before });
+      }
+
+      case 'contract': {
+        const { positionals } = parseArgs({ args: rest, options: {}, allowPositionals: true });
+        return await runContract({ cwd, requirement: positionals.join(' ').trim() });
+      }
 
       case 'decide': {
         const { values } = parseArgs({
@@ -238,6 +352,10 @@ async function main(): Promise<number> {
           },
           allowPositionals: false,
         });
+        if (process.env.BASTION_QUESTIONS === 'off') {
+          console.error('[bastion] ask: questions are switched off for this run (switch "questions"). Decide yourself and record the choice with the decisions file, or stop with a dispute.');
+          return 1;
+        }
         return runAsk({ cwd, nodeId: values.node, question: values.question, recommend: values.recommend });
       }
 
@@ -276,13 +394,24 @@ async function main(): Promise<number> {
           args: rest,
           options: {
             max: { type: 'string' },
+            timeout: { type: 'string' },
           },
           allowPositionals: true,
         });
+        let mutateTimeoutMs: number | undefined;
+        if (values.timeout !== undefined) {
+          const secs = Number(values.timeout);
+          if (!Number.isFinite(secs) || secs <= 0) {
+            console.error('[bastion] mutate: --timeout needs a positive number of seconds.');
+            return 1;
+          }
+          mutateTimeoutMs = Math.round(secs * 1000);
+        }
         return runMutate({
           cwd,
           files: positionals,
           maxMutations: values.max ? Number(values.max) : undefined,
+          timeoutMs: mutateTimeoutMs,
         });
       }
 

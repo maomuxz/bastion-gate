@@ -1,0 +1,71 @@
+diff --git a/tests/v11-mutate-timeout.test.ts b/tests/v11-mutate-timeout.test.ts
+index 535f25e..6cba7eb 100644
+--- a/tests/v11-mutate-timeout.test.ts
++++ b/tests/v11-mutate-timeout.test.ts
+@@ -70,7 +70,7 @@ afterEach(() => {
+   }
+ });
+ 
+-describe('v1.1 runTestCommand timeout', { timeout: 60_000 }, () => {
++describe('v1.1 runTestCommand timeout', () => {
+   it('a command that finishes in time keeps its exit code and output, timedOut is not true', { timeout: 60_000 }, () => {
+     const dir = scratchDir();
+     fs.writeFileSync(path.join(dir, 'ok.mjs'), `console.log('fine-out'); console.error('fine-err');\n`);
+@@ -210,7 +210,9 @@ function buildLoopRepo(pidFile: string, extraSource = ''): string {
+   return repo;
+ }
+ 
+-describe('v1.1 runMutate timeout', { timeout: 60_000 }, () => {
++// No time limit on the group: it would have to cover the SUM of its cases (40-46 s normally, 52-56 s measured under load),
++// while each case already has its own 60 s limit.
++describe('v1.1 runMutate timeout', () => {
+   it('a mutant that never ends is killed by timeout, the rest still run, file restored, exit 0', { timeout: 60_000 }, () => {
+     const pidFile = path.join(scratchDir(), 'pids.txt');
+     const repo = buildLoopRepo(pidFile);
+diff --git a/tests/v11-stage.test.ts b/tests/v11-stage.test.ts
+index e053ea3..a110f01 100644
+--- a/tests/v11-stage.test.ts
++++ b/tests/v11-stage.test.ts
+@@ -64,3 +64,42 @@ describe('v1.1 run: staging after a passing gate', () => {
+     assert.ok(!fs.existsSync(path.join(repo, '.env')));
+   });
+ });
++
++// The two error paths: when bastion cannot stage or cannot commit the verified work, the node must fail and nothing
++// may be merged - a passing gate alone is not enough. (Mutations that turned these `return false` into `return true`
++// survived the suite.)
++const BREAK_GIT_ADD = [
++  AGENT_PRELUDE,
++  'implementNode();',
++  // a stale index.lock in this worktree's git dir makes every later `git add` fail
++  `const gitDir = execFileSync('git', ['rev-parse', '--absolute-git-dir'], { encoding: 'utf8' }).trim();`,
++  `fs.writeFileSync(gitDir + '/index.lock', '');`,
++].join('\n') + '\n';
++
++const BREAK_GIT_COMMIT = [
++  AGENT_PRELUDE,
++  'implementNode();',
++  // hooks live in the common git dir; a failing pre-commit hook makes bastion's own commit fail
++  `const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8' }).trim();`,
++  `fs.mkdirSync(common + '/hooks', { recursive: true });`,
++  `fs.writeFileSync(common + '/hooks/pre-commit', '#!/bin/sh\\necho hook says no >&2\\nexit 1\\n', { mode: 0o755 });`,
++].join('\n') + '\n';
++
++describe('v1.1 run: staging failures fail the node', () => {
++  for (const [what, script, message] of [
++    ['git add', BREAK_GIT_ADD, /\[sd\] git add failed/],
++    ['git commit', BREAK_GIT_COMMIT, /\[sd\] git commit failed/],
++  ] as const) {
++    it(`a failing ${what} after a passing gate: node not completed, nothing merged, run returns 1`, async () => {
++      const repo = createSwarmRepo({ nodes: [{ id: 'sd' }], agentScript: script });
++      const { result, out, err } = await captureConsole(() => runSwarm(runOpts(repo)));
++      assert.equal(result, 1, out + err);
++      assert.match(out, /GATE PASS: all checks passed/, 'the gate itself passed');
++      assert.match(err, message);
++      assert.doesNotMatch(out, /\[sd\] GATE PASS on attempt/);
++      assert.deepEqual(readRunStateFile(repo).completedNodes ?? [], []);
++      const branch = integrationBranch(repo);
++      assert.equal(git(['show', `${branch}:src/sd.mjs`], repo).trim(), 'export const sd = 0;', 'the unverified-commit work is not on the integration branch');
++    });
++  }
++});

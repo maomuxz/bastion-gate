@@ -36,6 +36,12 @@ function planFromMap(map: ReturnType<typeof sampleMap>) {
   };
 }
 
+// v1.1: a qa report must carry at least one black-box case; the case script is written by the fake role into its cwd.
+const QA_CASE = { name: 'c1', rule: 'calculator works', node: 'n1', command: 'node .bastion/qa-cases/c1.mjs' };
+function withCase(qa: unknown): unknown {
+  return typeof qa === 'object' && qa !== null && !Array.isArray(qa) ? { ...qa, cases: [QA_CASE] } : qa;
+}
+
 function runFixtures(qa?: unknown, implOverride?: Record<string, string>): RoleFixtures {
   const impl = implOverride ?? SAMPLE_FILES.impl;
   return {
@@ -45,7 +51,7 @@ function runFixtures(qa?: unknown, implOverride?: Record<string, string>): RoleF
         n2: { files: { 'src/mul.mjs': impl['src/mul.mjs'] } },
       },
     },
-    ...(qa === undefined ? {} : { qa: { output: qa } }),
+    ...(qa === undefined ? {} : { qa: { output: withCase(qa), files: { '.bastion/qa-cases/c1.mjs': 'process.exit(0);\n' } } }),
   };
 }
 
@@ -80,7 +86,7 @@ const qaCalls = (repo: string) => readRoleCalls(repo).filter((c) => c.role === '
 
 describe('v1.0 parseQaReport', () => {
   it('accepts pass and fail reports and returns them intact', () => {
-    assert.deepEqual(parseQaReport({ verdict: 'pass', findings: [] }), { verdict: 'pass', findings: [] });
+    assert.deepEqual(parseQaReport({ verdict: 'pass', findings: [] }), { verdict: 'pass', findings: [], cases: [] });
     const fail = {
       verdict: 'fail',
       findings: [
@@ -88,7 +94,7 @@ describe('v1.0 parseQaReport', () => {
         { node: 'n2', kind: 'test_defect', issue: 'test expects 21' },
       ],
     };
-    assert.deepEqual(parseQaReport(fail), fail);
+    assert.deepEqual(parseQaReport(fail), { ...fail, cases: [] });
   });
 
   it('rejects anything that is not a well-formed report', () => {
@@ -120,24 +126,29 @@ describe('v1.0 parseQaReport', () => {
 });
 
 describe('v1.0 runQa', () => {
-  it('returns 1 without calling the role when there is no run-state', async () => {
-    const repo = createRoleRepo({ fixtures: { qa: { output: { verdict: 'pass', findings: [] } } }, files: { '.bastion/acceptance.md': ACCEPTANCE } });
+  it('v1.1: without a run-state qa runs standalone against HEAD - the role is called and no run-state is created', async () => {
+    const repo = createRoleRepo({
+      fixtures: { qa: { output: withCase({ verdict: 'pass', findings: [] }), files: { '.bastion/qa-cases/c1.mjs': 'process.exit(0);\n' } } },
+      files: { '.bastion/acceptance.md': ACCEPTANCE },
+    });
     const { result, err } = await captureConsole(() => runQa({ cwd: repo }));
-    assert.equal(result, 1);
-    assert.equal(qaCalls(repo).length, 0);
-    assert.match(err, /bastion run|run-state/i, 'tells the user to run first');
+    assert.equal(result, 0, err);
+    assert.equal(qaCalls(repo).length, 1);
+    assert.doesNotMatch(err, /run-state|bastion run/i, 'a missing run-state is not an error any more');
+    assert.equal(fs.existsSync(path.join(repo, '.bastion', 'run-state.json')), false);
   });
 
-  it('returns 1 without calling the role when acceptance.md is missing', async () => {
+  it('v1.1: a missing acceptance.md is not an error - the role is called and the acceptance section is left out', async () => {
     const repo = await createCompletedRun({ verdict: 'pass', findings: [] });
     fs.rmSync(path.join(repo, '.bastion', 'acceptance.md'));
     const { result, err } = await captureConsole(() => runQa({ cwd: repo }));
-    assert.equal(result, 1);
-    assert.equal(qaCalls(repo).length, 0);
-    assert.match(err, /acceptance/i);
+    assert.equal(result, 0, err);
+    assert.equal(qaCalls(repo).length, 1);
+    assert.ok(!qaCalls(repo)[0].prompt.includes('## Acceptance (acceptance.md)'));
+    assert.deepEqual(completed(repo).sort(), ['n1', 'n2']);
   });
 
-  it('pass: returns 0, changes nothing, and tells the role the acceptance list and the integration diff', async () => {
+  it('pass: returns 0, changes nothing, and tells the role the acceptance list', async () => {
     const repo = await createCompletedRun({ verdict: 'pass', findings: [] });
     const { result } = await captureConsole(() => runQa({ cwd: repo }));
     assert.equal(result, 0);
@@ -149,19 +160,6 @@ describe('v1.0 runQa', () => {
     assert.equal(calls.length, 1);
     assert.match(calls[0].prompt, /add\(2, 3\) is 5/);
     assert.match(calls[0].prompt, /mul\(4, 5\) is 20/);
-    assert.match(calls[0].prompt, /diff --git a\/src\/add\.mjs/);
-    assert.match(calls[0].prompt, /\+export function add\(a, b\) \{ return a \+ b; \}/);
-  });
-
-  it('cuts the diff handed to the role to 200 KB', async () => {
-    const big = { 'src/add.mjs': `// ${'x'.repeat(300_000)}\nexport function add(a, b) { return a + b; }\n// TAIL_MARKER_END\n`, 'src/mul.mjs': SAMPLE_FILES.impl['src/mul.mjs'] };
-    const repo = await createCompletedRun({ verdict: 'pass', findings: [] }, big);
-    const { result } = await captureConsole(() => runQa({ cwd: repo }));
-    assert.equal(result, 0);
-    const prompt = qaCalls(repo)[0].prompt;
-    assert.ok(prompt.includes('xxxxxxxxxx'), 'diff head is present');
-    assert.ok(!prompt.includes('TAIL_MARKER_END'), 'diff tail is cut');
-    assert.ok(prompt.length < 200 * 1024 + 20_000, `prompt too large: ${prompt.length}`);
   });
 
   it('invalid report: returns 1 and reopens nothing', async () => {
